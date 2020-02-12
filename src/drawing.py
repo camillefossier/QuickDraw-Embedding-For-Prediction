@@ -5,6 +5,8 @@ import tkinter as tk
 from datetime import datetime
 from esig import tosig as ts
 
+# Commentaire inutile 1
+
 class Drawing:
     def __init__(self, drawing, do_link_strokes=False, do_rescale=False, link_steps=None, link_timestep=None):
         self.label = drawing.get("word")
