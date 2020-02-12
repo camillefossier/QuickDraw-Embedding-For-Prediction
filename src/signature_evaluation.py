@@ -1,6 +1,8 @@
 import ndjson
 import numpy as np
 
+# Commentaire inutile 2
+
 from drawing import Drawing
 from datetime import datetime
 from sklearn.linear_model import LogisticRegression
