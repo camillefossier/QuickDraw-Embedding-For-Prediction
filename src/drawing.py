@@ -22,6 +22,7 @@ class Drawing:
             self.rescale()
 
     def rescale(self):
+		#fdp
         mat = self.concat_drawing()
         min_x = np.min(mat[:, 0])
         min_y = np.min(mat[:, 1])
