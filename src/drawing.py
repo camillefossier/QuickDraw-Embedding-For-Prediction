@@ -6,6 +6,12 @@ from datetime import datetime
 from esig import tosig as ts
 
 class Drawing:
+
+    X = 0
+    Y = 1
+    T = 2
+    Z = 3
+
     def __init__(self, drawing, do_link_strokes=False, do_rescale=False, link_steps=None, link_timestep=None):
         self.label = drawing.get("word")
         self.countrycode = drawing.get("countrycode")
@@ -93,6 +99,25 @@ class Drawing:
     def signature(self, degree, log=False):
         return ts.stream2sig(self.concat_drawing(), degree) if not log else ts.stream2logsig(self.concat_drawing(), degree)
 
+    # Param : absc = abscisse, ordo = ordonnée, larg = largeur, ecart
+    def tda(self, absc = X, ordo = Y, larg = 2, ecart = 1, offset = 1, concat =False):
+        fen = 2 * larg + 1 # Taille de la fenetre (nb colonnes dans la mat)
+        final = [] # Matrice finale avec toutes les strokes concaténées
+
+        if concat: # On souhaite avoir al version concaténée ? 
+            strokes = [self.concat_drawing()]
+        else:
+            strokes = self.strokes
+        for stroke in strokes:
+            stroke = stroke[stroke[:,absc].argsort()] # Tri selon la variable abscisse
+            shape = stroke.shape[0] # nb lignes
+            mat = np.zeros((shape, fen)) # Initialisation de la matrice pour une stroke
+            le = larg * ecart 
+            for i,depart in enumerate(range(le, shape - le, offset)):
+                mat[i] = stroke[range(depart - le, depart + le + 1, ecart),ordo]
+            final.append(mat[0:i+1])
+        return np.concatenate(final, axis = 0)
+
 if __name__ == '__main__':
     '''
     with open("./data/full_raw_axe.ndjson") as f:
@@ -106,10 +131,9 @@ if __name__ == '__main__':
         data = f.readline()
         i=0
         while data:
-            if i == 11:
-                print("11")
             draw = Drawing(ndjson.loads(data)[0], do_link_strokes=True, do_rescale=True)
-            draw.display(scale=300)
+            tda = draw.tda(absc = Drawing.X, ordo = Drawing.Y, larg=2, ecart=2, offset=1, concat=False)
+            #draw.display(scale=300)
             #sig = draw.signature(4)
             #logsig = draw.signature(4, log=True)
             data = f.readline()
