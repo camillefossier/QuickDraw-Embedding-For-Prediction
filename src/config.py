@@ -22,6 +22,9 @@ class Evaluator:
     
     def accuracy(X, y)
         raise NotImplementedError(NOT_IMPLEMENTED_MESSAGE)
+    
+    def reshape():
+        0
 
 class ClassifierEvaluator(Evaluator):
 
@@ -36,10 +39,10 @@ class LogisticRegressorEvaluator(ClassifierEvaluator):
 
     def __init__(self, shape, multi_class="multinomial",solver="lbfgs", C=10, max_iter=7000):
         super(shape)
-        if self.shape != VECTOR:
-            raise Exception("Logistic Regression only accepts 1-dimensional vectors.")
         self.model = LogisticRegression(multi_class=multi_class, solver=solver, C=C, max_iter=max_iter)
-    
+        #if self.shape != VECTOR:
+        #    raise Exception("Logistic Regression only accepts 1-dimensional vectors.")
+
     def fit(X, y=None):
         self.model.fit(X, y)
     
@@ -48,6 +51,7 @@ class LogisticRegressorEvaluator(ClassifierEvaluator):
 
 class Config:
     def __init__(self, data, evaluators):
-        self.data = {}
+        self.data = data
         self.evaluators = evaluators
 
+        # Data ==> Embedding ==> Reshape ==> Evaluate
