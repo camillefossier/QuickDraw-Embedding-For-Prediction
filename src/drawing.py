@@ -3,7 +3,9 @@ import numpy as np
 import tkinter as tk
 
 from datetime import datetime
-from esig import tosig as ts
+from esig import tosig as ts # Dispo seulement en python 3.6
+import scipy.interpolate as interpolate
+import matplotlib.pyplot as plt
 
 class Drawing:
 
@@ -100,11 +102,11 @@ class Drawing:
         return ts.stream2sig(self.concat_drawing(), degree) if not log else ts.stream2logsig(self.concat_drawing(), degree)
 
     # Param : absc = abscisse, ordo = ordonnée, larg = largeur, ecart
-    def tda(self, absc = X, ordo = Y, larg = 2, ecart = 1, offset = 1, concat =False):
+    def tda(self, absc = X, ordo = Y, larg = 2, ecart = 1, offset = 1, concat = False):
         fen = 2 * larg + 1 # Taille de la fenetre (nb colonnes dans la mat)
         final = [] # Matrice finale avec toutes les strokes concaténées
 
-        if concat: # On souhaite avoir al version concaténée ? 
+        if concat: # On souhaite avoir la version concaténée ? 
             strokes = [self.concat_drawing()]
         else:
             strokes = self.strokes
@@ -117,6 +119,51 @@ class Drawing:
                 mat[i] = stroke[range(depart - le, depart + le + 1, ecart),ordo]
             final.append(mat[0:i+1])
         return np.concatenate(final, axis = 0)
+
+    def fda(self, absc = X, ordo = Y, cote = None, concat = False, plot = False): # cote = third axis for bivariate
+        # A voir si on laisse le choix de la base dans les paramètres
+
+        if concat: # On souhaite avoir la version concaténée ? 
+            strokes = [self.concat_drawing()]
+        else:
+            strokes = self.strokes
+        fdaSpline = [] # List with tuple of spline coef and more -> the return
+        if cote: # Bivariate
+            for stroke in strokes:
+                x = stroke[:,absc]
+                x = x[x[:].argsort()]
+                y = stroke[:,ordo]
+                z = stroke[:,cote]
+
+                # Param to modify 
+                coef = interpolate.bisplrep(x, y, z, s=1)
+                fdaSpline.append(coef)
+
+        else: # Univariate
+            for stroke in strokes:
+                x = stroke[:,absc]
+                x = x[x[:].argsort()]
+                y = stroke[:,ordo]
+
+                # This function do the representation B-Spline for a 1D curve
+                coef = interpolate.splrep(x, y, s=1, k=4) # s = degree of smooth, k = degree of spline fit (4 = cubic splines)
+                # return : A tuple (t,c,k) containing the vector of knots, the B-spline coefficients, and the degree of the spline
+                fdaSpline.append(coef)
+                spline = interpolate.BSpline(coef[0], coef[1], coef[2], extrapolate=False) # Do I return this ? 
+                
+                # PLot (A retirer j'imagine)
+                if plot:
+                    N = 100 
+                    xmin, xmax = x.min(), x.max()
+                    xx = np.linspace(xmin, xmax, N)
+                    plt.plot(x, y, 'bo', label='Original points')
+                    plt.plot(xx, spline(xx), 'r', label='BSpline')
+                    plt.grid()
+                    plt.legend(loc='best')
+                    plt.show()
+                
+            return fdaSpline
+
 
 if __name__ == '__main__':
     '''
@@ -132,8 +179,9 @@ if __name__ == '__main__':
         i=0
         while data:
             draw = Drawing(ndjson.loads(data)[0], do_link_strokes=True, do_rescale=True)
-            tda = draw.tda(absc = Drawing.X, ordo = Drawing.Y, larg=2, ecart=2, offset=1, concat=False)
-            #draw.display(scale=300)
+            #tda = draw.tda(absc = Drawing.X, ordo = Drawing.Y, larg=2, ecart=2, offset=1, concat=True)
+            #fda = draw.fda(absc = Drawing.X, ordo = Drawing.Y, cote = Drawing.T, concat = True, plot = False)
+            draw.display(scale=300)
             #sig = draw.signature(4)
             #logsig = draw.signature(4, log=True)
             data = f.readline()
