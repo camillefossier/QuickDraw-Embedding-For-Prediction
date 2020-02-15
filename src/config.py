@@ -190,9 +190,9 @@ class Tester:
             shuffle = np.arange(0, n)
             np.random.shuffle(shuffle)
 
-            X_train = X[shuffle,:][:lim,:]
+            X_train = X[shuffle][:lim]
             y_train = y[shuffle][:lim]
-            X_test = X[shuffle,:][lim:,:]
+            X_test = X[shuffle][lim:]
             y_test = y[shuffle][lim:]
             
             config.evaluator.fit(X_train, y=y_train)
@@ -221,8 +221,8 @@ if __name__ == '__main__':
     config2 = Config(tda, lr)
     tester = Tester(
         ["../data/full_raw_axe.ndjson", "../data/full_raw_sword.ndjson"],
-        [config, config2],
-        store_data=True,
+        [config2],
+        store_data=False,
         nb_lines=500,
         do_link_strokes=True,
         do_rescale=True,
