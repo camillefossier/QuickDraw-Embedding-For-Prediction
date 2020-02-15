@@ -190,7 +190,7 @@ class Tester:
         return [Drawing(draw,
                         do_link_strokes=self.do_link_strokes,
                         do_rescale=self.do_rescale,
-                        link_steps=self.do_link_strokes,
+                        link_steps=self.link_steps,
                         link_timestep=self.link_timestep) for draw in data]
 
 if __name__ == '__main__':
