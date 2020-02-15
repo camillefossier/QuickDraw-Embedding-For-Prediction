@@ -35,7 +35,7 @@ class Evaluator:
 
 class ClassifierEvaluator(Evaluator):
     def __init__(self, shape):
-        super(Evaluator, self).__init__(shape)
+        super().__init__(shape)
 
     def accuracy(self, X, y):
         score = self.predict(X) == y
@@ -43,7 +43,7 @@ class ClassifierEvaluator(Evaluator):
 
 class LogisticRegressorEvaluator(ClassifierEvaluator):
     def __init__(self, multi_class="multinomial",solver="lbfgs", C=10, max_iter=7000):
-        super(ClassifierEvaluator, self).__init__(Evaluator.VECTOR)
+        super().__init__(Evaluator.VECTOR)
         self.model = sklm.LogisticRegression(multi_class=multi_class, solver=solver, C=C, max_iter=max_iter)
         #if self.shape != VECTOR:
         #    raise Exception("Logistic Regression only accepts 1-dimensional vectors.")
@@ -62,7 +62,7 @@ class LogisticRegressorEvaluator(ClassifierEvaluator):
         elif input_shape is Embedding.MATRIX_LIST_SHAPE:
             return np.array([np.array([stroke.flatten() for stroke in draw]) for draw in data])
         else:
-            raise Exception(UNKNOWN_SHAPE_MESSAGE)
+            raise Exception(Evaluator.UNKNOWN_SHAPE_MESSAGE)
 
 class Embedding:
 
@@ -74,12 +74,12 @@ class Embedding:
     MATRIX_LIST_SHAPE = 2
 
     def __init__(self):
-        self.output_shape = UNDEFINED_SHAPE
+        self.output_shape = Embedding.UNDEFINED_SHAPE
     
     def embed(self, data):
-        raise NotImplementedError(NOT_IMPLEMENTED_MESSAGE)
+        raise NotImplementedError(Embedding.NOT_IMPLEMENTED_MESSAGE)
     
-    def output_shape(self, data):
+    def shape(self, data):
         return self.output_shape
 
 class Signature(Embedding):
@@ -89,7 +89,6 @@ class Signature(Embedding):
         self.degree = degree
         self.log = log
 
-    # TODO : Add log option
     def embed(self, data):
         return ts.stream2sig(data.concat_drawing(), self.degree) if not self.log else ts.stream2logsig(data.concat_drawing(), self.degree)
 
@@ -111,12 +110,25 @@ class Config:
         self.evaluator = evaluator
 
 class Tester:
-    def __init__(self, datasets_path, configs, store_data=True, nb_lines=None, train_ratio=0.8):
+    def __init__(self, 
+                datasets_path,
+                configs,
+                store_data=True,
+                nb_lines=None,
+                train_ratio=0.8,
+                do_link_strokes=False,
+                do_rescale=False,
+                link_steps=None,
+                link_timestep=None):
         self.datasets_path = datasets_path
         self.configs = configs
         self.store_data = store_data
         self.nb_lines = nb_lines
         self.train_ratio = 0.8
+        self.do_link_strokes = do_link_strokes
+        self.do_rescale = do_rescale
+        self.link_steps = link_steps
+        self.link_timestep = link_timestep
         self.stored_data = {}
         self.init_data_storage()
     
@@ -175,8 +187,11 @@ class Tester:
             with open(path) as f:
                 data = ndjson.load(f)
         
-        # TODO : Parameters
-        return [Drawing(draw, do_link_strokes=True, do_rescale=True, link_steps=2) for draw in data]
+        return [Drawing(draw,
+                        do_link_strokes=self.do_link_strokes,
+                        do_rescale=self.do_rescale,
+                        link_steps=self.do_link_strokes,
+                        link_timestep=self.link_timestep) for draw in data]
 
 if __name__ == '__main__':
     lr = LogisticRegressorEvaluator()
@@ -186,6 +201,9 @@ if __name__ == '__main__':
         ["../data/full_raw_axe.ndjson", "../data/full_raw_sword.ndjson"],
         [config, config]*5,
         store_data=True,
-        nb_lines=500
+        nb_lines=500,
+        do_link_strokes=True,
+        do_rescale=True,
+        link_steps=2,
     )
     tester.run()
