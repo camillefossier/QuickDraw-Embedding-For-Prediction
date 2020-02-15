@@ -93,15 +93,35 @@ class Signature(Embedding):
         return ts.stream2sig(data.concat_drawing(), self.degree) if not self.log else ts.stream2logsig(data.concat_drawing(), self.degree)
 
 class TDA(Embedding):
-    def __init__(self, width, spacing, offset):
+    def __init__(self, abscissa=Drawing.T, ordinate=Drawing.Y, width=1, spacing=1, offset=1, concat=True):
         super()
+        # TODO : Add possibility for list of matrices
+        self.output_shape = Embedding.MATRIX_SHAPE
+        self.abscissa = abscissa
+        self.ordinate = ordinate
         self.width = width
         self.spacing = spacing
         self.offset = offset
+        self.concat = concat
     
+    # TODO : Needs to sample only part of the points
     def embed(self, data):
-        # TODO : Return TDA
-        0
+        fen = 2 * self.width + 1 # Taille de la fenetre (nb colonnes dans la mat)
+        final = [] # Matrice finale avec toutes les strokes concaténées
+
+        if self.concat: # On souhaite avoir la version concaténée ? 
+            strokes = [data.concat_drawing()]
+        else:
+            strokes = data.strokes
+        for stroke in strokes:
+            stroke = stroke[stroke[:,self.abscissa].argsort()] # Tri selon la variable abscisse
+            shape = stroke.shape[0] # nb lignes
+            mat = np.zeros((shape, fen)) # Initialisation de la matrice pour une stroke
+            le = self.width * self.spacing 
+            for i,depart in enumerate(range(le, shape - le, self.offset)):
+                mat[i] = stroke[range(depart - le, depart + le + 1, self.spacing), self.ordinate]
+            final.append(mat[0:i+1])
+        return np.concatenate(final, axis = 0)
 
 class Config:
     def __init__(self, embedding, evaluator):
@@ -195,11 +215,13 @@ class Tester:
 
 if __name__ == '__main__':
     lr = LogisticRegressorEvaluator()
-    em = Signature(3)
-    config = Config(em, lr)
+    signature = Signature(3)
+    tda = TDA()
+    config = Config(signature, lr)
+    config2 = Config(tda, lr)
     tester = Tester(
         ["../data/full_raw_axe.ndjson", "../data/full_raw_sword.ndjson"],
-        [config, config]*5,
+        [config, config2],
         store_data=True,
         nb_lines=500,
         do_link_strokes=True,
