@@ -29,7 +29,7 @@ class Evaluator:
     
     def accuracy(self, X, y):
         raise NotImplementedError(Evaluator.NOT_IMPLEMENTED_MESSAGE)
-    
+
     def reshape(self, data, input_shape):
         raise NotImplementedError(Evaluator.NOT_IMPLEMENTED_MESSAGE)
 
@@ -78,6 +78,9 @@ class Embedding:
     
     def embed(self, data):
         raise NotImplementedError(Embedding.NOT_IMPLEMENTED_MESSAGE)
+
+    def post_embedding(self, data):
+        return data
     
     def shape(self, data):
         return self.output_shape
@@ -93,7 +96,7 @@ class Signature(Embedding):
         return ts.stream2sig(data.concat_drawing(), self.degree) if not self.log else ts.stream2logsig(data.concat_drawing(), self.degree)
 
 class TDA(Embedding):
-    def __init__(self, abscissa=Drawing.T, ordinate=Drawing.Y, width=1, spacing=1, offset=1, concat=True):
+    def __init__(self, abscissa=Drawing.T, ordinate=Drawing.Y, width=1, spacing=1, offset=1, concat=True, clipping=False):
         super()
         # TODO : Add possibility for list of matrices
         self.output_shape = Embedding.MATRIX_SHAPE
@@ -103,6 +106,7 @@ class TDA(Embedding):
         self.spacing = spacing
         self.offset = offset
         self.concat = concat
+        self.clipping = clipping
     
     # TODO : Needs to sample only part of the points
     def embed(self, data):
@@ -122,6 +126,12 @@ class TDA(Embedding):
                 mat[i] = stroke[range(depart - le, depart + le + 1, self.spacing), self.ordinate]
             final.append(mat[0:i+1])
         return np.concatenate(final, axis = 0)
+    
+    # TODO
+    def post_embedding(self, data):
+        if self.clipping:
+            min_width = min([d.shape[0] for d in data])
+
 
 class Config:
     def __init__(self, embedding, evaluator):
@@ -174,6 +184,7 @@ class Tester:
                     else:
                         data = self.stored_data[path]["data"]
                     embedding = [config.embedding.embed(draw) for draw in data]
+                    embedding = config.embedding.post_embedding(embedding)
                     if self.store_data:
                         self.stored_data[path][config.embedding] = embedding
                 else:
