@@ -289,9 +289,15 @@ class Tester:
 
     def read_data(self, path):
         if self.nb_lines is not None:
+            lines = self.nb_lines * [None]
             with open(path) as f:
-                lines = "".join(f.readlines()[:self.nb_lines])
-            data = ndjson.loads(lines)
+                for i in range(self.nb_lines):
+                    line = f.readline()
+                    if line:
+                        lines[i] = line
+                    else:
+                        break
+            data = ndjson.loads("".join(lines))
         else:
             with open(path) as f:
                 data = ndjson.load(f)
@@ -318,12 +324,12 @@ if __name__ == '__main__':
         "../data/full_raw_The Eiffel Tower.ndjson", "../data/full_raw_basketball.ndjson"],
         [config, config5],
         store_data=True,
-        nb_lines=500,
+        nb_lines=1000,
         do_link_strokes=True,
         do_rescale=True,
         link_steps=2,
     )
-    #cProfile.run('tester.run()')
+    cProfile.run('tester.run()', sort="cumtime")
     start = timer()
     tester.run()
     print(timer() - start)
