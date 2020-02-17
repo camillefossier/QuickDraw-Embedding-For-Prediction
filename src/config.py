@@ -10,6 +10,11 @@ from sklearn import metrics
 from sklearn.cluster import SpectralClustering
 import sklearn as sk
 
+from timeit import default_timer as timer
+from numba import jit
+
+import cProfile
+
 class Evaluator:
 
     CLASSIFICATION = 0
@@ -80,6 +85,19 @@ class SVMEvaluator(ClassifierEvaluator):
         #if self.shape != VECTOR:
         #    raise Exception("Logistic Regression only accepts 1-dimensional vectors.")
 
+    def fit(self, X, y=None):
+        self.model.fit(X, y)
+    
+    def predict(self, X):
+        return self.model.predict(X)
+
+class CNNEvaluator(ClassifierEvaluator):
+    def __init__(self, multi_class="multinomial",solver="lbfgs", C=10, max_iter=7000):
+        super().__init__(Evaluator.VECTOR)
+        self.model = sk.svm.SVC()
+        # TODO
+        pass
+        
     def fit(self, X, y=None):
         self.model.fit(X, y)
     
@@ -287,7 +305,7 @@ class Tester:
 if __name__ == '__main__':
     lr = LogisticRegressorEvaluator()
     svm = SVMEvaluator()
-    signature = Signature(4, log=True)
+    signature = Signature(2, log=True)
     tda = TDA()
     
     config = Config(signature, lr)
@@ -300,13 +318,16 @@ if __name__ == '__main__':
         "../data/full_raw_The Eiffel Tower.ndjson", "../data/full_raw_basketball.ndjson"],
         [config, config5],
         store_data=True,
-        nb_lines=1000,
+        nb_lines=500,
         do_link_strokes=True,
         do_rescale=True,
         link_steps=2,
     )
+    #cProfile.run('tester.run()')
+    start = timer()
     tester.run()
-
+    print(timer() - start)
+    
     exit(0)
 
     import sklearn.decomposition
@@ -331,3 +352,4 @@ if __name__ == '__main__':
 # PCA for clustering ?
 # Visualization for clusters
 # Storing results
+# Add parameters to evaluators
