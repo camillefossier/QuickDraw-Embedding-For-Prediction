@@ -302,6 +302,26 @@ if __name__ == '__main__':
     )
     tester.run()
 
+    exit(0)
+
+    import sklearn.decomposition
+    pca = sklearn.decomposition.PCA()
+    trans = pca.fit(X)
+
+    import matplotlib.pyplot as plt
+
+    colors = np.copy(y)
+    colors[colors == 'axe'] = 0
+    colors[colors == 'sword'] = 1
+    colors[colors == 'squirrel'] = 2
+    colors[colors == 'basketball'] = 3
+    colors[colors == 'The Eiffel Tower'] = 4
+    colors = colors.astype(float)
+
+    plt.scatter(trans[:,0], trans[:,1], c=colors, s=2)
+
+    plt.show()
+
 # TODO :
 # PCA for clustering ?
 # Visualization for clusters
