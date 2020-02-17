@@ -282,18 +282,18 @@ class Tester:
 
 if __name__ == '__main__':
     lr = LogisticRegressorEvaluator()
-    signature = Signature(3)
+    signature = Signature(4)
     tda = TDA()
     
     config = Config(signature, lr)
     config2 = Config(tda, lr)
-    config3 = Config(signature, SpectralClusteringEvaluator(2))
+    config3 = Config(signature, SpectralClusteringEvaluator(5))
     config4 = Config(signature, EMClusteringEvaluator(5))
     
     tester = Tester(
         ["../data/full_raw_axe.ndjson", "../data/full_raw_sword.ndjson", "../data/full_raw_squirrel.ndjson",
         "../data/full_raw_The Eiffel Tower.ndjson", "../data/full_raw_basketball.ndjson"],
-        [config3],
+        [config4],
         store_data=True,
         nb_lines=1000,
         do_link_strokes=True,
