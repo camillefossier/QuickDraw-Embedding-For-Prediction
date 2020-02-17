@@ -2,11 +2,17 @@ import ndjson
 
 import numpy as np
 import sklearn.linear_model as sklm
+import sklearn.mixture as skmx
 import esig.tosig as ts
 
 from drawing import Drawing
+from sklearn import metrics
+from sklearn.cluster import SpectralClustering
 
 class Evaluator:
+
+    CLASSIFICATION = 0
+    CLUSTERING = 1
 
     VECTOR = 0
     MATRIX = 1
@@ -16,6 +22,7 @@ class Evaluator:
     UNKNOWN_SHAPE_MESSAGE = "Unknown input shape."
 
     def __init__(self, shape):
+        self.task = None
         self.shape = abs(int(shape))
         self.model = None
         if self.shape > 2:
@@ -31,11 +38,22 @@ class Evaluator:
         raise NotImplementedError(Evaluator.NOT_IMPLEMENTED_MESSAGE)
 
     def reshape(self, data, input_shape):
-        raise NotImplementedError(Evaluator.NOT_IMPLEMENTED_MESSAGE)
+        if self.shape is Evaluator.VECTOR:
+            if input_shape is Embedding.VECTOR_SHAPE:
+                return np.array(data)
+            elif input_shape is Embedding.MATRIX_SHAPE:
+                return np.array([draw.flatten() for draw in data])
+            elif input_shape is Embedding.MATRIX_LIST_SHAPE:
+                return np.array([np.array([stroke.flatten() for stroke in draw]) for draw in data])
+            else:
+                raise Exception(Evaluator.UNKNOWN_SHAPE_MESSAGE)
+        else:
+            raise NotImplementedError("Evaluator reshape method not yet implemented for this shape.")
 
 class ClassifierEvaluator(Evaluator):
     def __init__(self, shape):
         super().__init__(shape)
+        self.task = Evaluator.CLASSIFICATION
 
     def accuracy(self, X, y):
         score = self.predict(X) == y
@@ -64,6 +82,39 @@ class LogisticRegressorEvaluator(ClassifierEvaluator):
         else:
             raise Exception(Evaluator.UNKNOWN_SHAPE_MESSAGE)
 
+class ClusteringEvaluator(Evaluator):
+    def __init__(self, shape, nb_clusters):
+        super().__init__(shape)
+        self.task = Evaluator.CLUSTERING
+        self.nb_clusters = nb_clusters
+
+    def accuracy(self, X, y):
+        prediction = self.predict(X)
+        return metrics.v_measure_score(y, prediction)
+
+class SpectralClusteringEvaluator(ClusteringEvaluator):
+    def __init__(self, nb_clusters):
+        super().__init__(Evaluator.VECTOR, nb_clusters)
+        self.model = SpectralClustering(nb_clusters, n_init=100, assign_labels='discretize')
+        self.prediction = None
+
+    def fit(self, X, y=None):
+        self.prediction = self.model.fit_predict(X)
+
+    def predict(self, X):
+        return self.prediction
+
+class EMClusteringEvaluator(ClusteringEvaluator):
+    def __init__(self, nb_clusters):
+        super().__init__(Evaluator.VECTOR, nb_clusters)
+        self.model = skmx.GaussianMixture(n_components=nb_clusters, covariance_type='spherical')
+
+    def fit(self, X, y=None):
+        self.model.fit_predict(X)
+
+    def predict(self, X):
+        return self.model.predict(X)
+  
 class Embedding:
 
     NOT_IMPLEMENTED_MESSAGE = "Embedding is an abstract class."
@@ -196,19 +247,24 @@ class Tester:
             X = config.evaluator.reshape(train_data, config.embedding.output_shape)
             y = np.concatenate(train_labels)
 
-            n = X.shape[0]
-            lim = int(self.train_ratio * n)
-            shuffle = np.arange(0, n)
-            np.random.shuffle(shuffle)
+            if config.evaluator.task == Evaluator.CLASSIFICATION:
+                n = X.shape[0]
+                lim = int(self.train_ratio * n)
+                shuffle = np.arange(0, n)
+                np.random.shuffle(shuffle)
 
-            X_train = X[shuffle][:lim]
-            y_train = y[shuffle][:lim]
-            X_test = X[shuffle][lim:]
-            y_test = y[shuffle][lim:]
+                X_train = X[shuffle][:lim]
+                y_train = y[shuffle][:lim]
+                X_test = X[shuffle][lim:]
+                y_test = y[shuffle][lim:]
+
+                config.evaluator.fit(X_train, y=y_train)
+                print(config.evaluator.accuracy(X_test, y_test))
             
-            config.evaluator.fit(X_train, y=y_train)
-            print(config.evaluator.accuracy(X_test, y_test))
-    
+            elif config.evaluator.task == Evaluator.CLUSTERING:
+                config.evaluator.fit(X)
+                print(config.evaluator.accuracy(X, y))
+
     def read_data(self, path):
         if self.nb_lines is not None:
             with open(path) as f:
@@ -228,15 +284,25 @@ if __name__ == '__main__':
     lr = LogisticRegressorEvaluator()
     signature = Signature(3)
     tda = TDA()
+    
     config = Config(signature, lr)
     config2 = Config(tda, lr)
+    config3 = Config(signature, SpectralClusteringEvaluator(2))
+    config4 = Config(signature, EMClusteringEvaluator(5))
+    
     tester = Tester(
-        ["../data/full_raw_axe.ndjson", "../data/full_raw_sword.ndjson"],
-        [config2],
-        store_data=False,
-        nb_lines=500,
+        ["../data/full_raw_axe.ndjson", "../data/full_raw_sword.ndjson", "../data/full_raw_squirrel.ndjson",
+        "../data/full_raw_The Eiffel Tower.ndjson", "../data/full_raw_basketball.ndjson"],
+        [config3],
+        store_data=True,
+        nb_lines=1000,
         do_link_strokes=True,
         do_rescale=True,
         link_steps=2,
     )
     tester.run()
+
+# TODO :
+# PCA for clustering ?
+# Visualization for clusters
+# Storing results
