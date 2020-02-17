@@ -8,6 +8,7 @@ import esig.tosig as ts
 from drawing import Drawing
 from sklearn import metrics
 from sklearn.cluster import SpectralClustering
+import sklearn as sk
 
 class Evaluator:
 
@@ -71,16 +72,19 @@ class LogisticRegressorEvaluator(ClassifierEvaluator):
     
     def predict(self, X):
         return self.model.predict(X)
+
+class SVMEvaluator(ClassifierEvaluator):
+    def __init__(self, multi_class="multinomial",solver="lbfgs", C=10, max_iter=7000):
+        super().__init__(Evaluator.VECTOR)
+        self.model = sk.svm.SVC()
+        #if self.shape != VECTOR:
+        #    raise Exception("Logistic Regression only accepts 1-dimensional vectors.")
+
+    def fit(self, X, y=None):
+        self.model.fit(X, y)
     
-    def reshape(self, data, input_shape):
-        if input_shape is Embedding.VECTOR_SHAPE:
-            return np.array(data)
-        elif input_shape is Embedding.MATRIX_SHAPE:
-            return np.array([draw.flatten() for draw in data])
-        elif input_shape is Embedding.MATRIX_LIST_SHAPE:
-            return np.array([np.array([stroke.flatten() for stroke in draw]) for draw in data])
-        else:
-            raise Exception(Evaluator.UNKNOWN_SHAPE_MESSAGE)
+    def predict(self, X):
+        return self.model.predict(X)
 
 class ClusteringEvaluator(Evaluator):
     def __init__(self, shape, nb_clusters):
@@ -282,18 +286,19 @@ class Tester:
 
 if __name__ == '__main__':
     lr = LogisticRegressorEvaluator()
-    signature = Signature(4)
+    svm = SVMEvaluator()
+    signature = Signature(4, log=True)
     tda = TDA()
     
     config = Config(signature, lr)
     config2 = Config(tda, lr)
     config3 = Config(signature, SpectralClusteringEvaluator(5))
     config4 = Config(signature, EMClusteringEvaluator(5))
-    
+    config5 = Config(signature, svm)
     tester = Tester(
         ["../data/full_raw_axe.ndjson", "../data/full_raw_sword.ndjson", "../data/full_raw_squirrel.ndjson",
         "../data/full_raw_The Eiffel Tower.ndjson", "../data/full_raw_basketball.ndjson"],
-        [config4],
+        [config, config5],
         store_data=True,
         nb_lines=1000,
         do_link_strokes=True,
