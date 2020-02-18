@@ -135,8 +135,11 @@ class Drawing:
                 y = stroke[:,ordo]
                 z = stroke[:,cote]
 
-                # Param to modify 
-                coef = interpolate.bisplrep(x, y, z, s=1)
+                # Param to modify
+                nb_knots = 10
+                tx = np.linspace(min(y), max(y), nb_knots)
+                ty = np.linspace(min(z), max(z), nb_knots)
+                coef = interpolate.bisplrep(x, y, z, s=1, tx=tx, ty=ty, task=-1)
                 fdaSpline.append(coef)
 
         else: # Univariate
@@ -144,9 +147,14 @@ class Drawing:
                 x = stroke[:,absc]
                 x = x[x[:].argsort()]
                 y = stroke[:,ordo]
-
+                print(stroke.shape)
                 # This function do the representation B-Spline for a 1D curve
-                coef = interpolate.splrep(x, y, s=1, k=4) # s = degree of smooth, k = degree of spline fit (4 = cubic splines)
+                #coef = interpolate.splrep(x, y, s=stroke.shape[0]/600, k=4) # s = degree of smooth, k = degree of spline fit (4 = cubic splines)
+                nb_knots = 30
+                #knots = x[np.linspace(0, stroke.shape[0] - 1, nb_knots, dtype=np.int16)[1:-1]]
+                tx = np.linspace(min(y), max(y), nb_knots)[1:-1]
+                coef = interpolate.splrep(x, y, k=5, t=tx, task=-1) # s = degree of smooth, k = degree of spline fit (4 = cubic splines)
+                print(len(coef[0]))
                 # return : A tuple (t,c,k) containing the vector of knots, the B-spline coefficients, and the degree of the spline
                 fdaSpline.append(coef)
                 spline = interpolate.BSpline(coef[0], coef[1], coef[2], extrapolate=False) # Do I return this ? 
@@ -174,14 +182,14 @@ if __name__ == '__main__':
     print("ok")
     
     '''
-    with open("../data/full_raw_axe.ndjson") as f:
+    with open("../data/full_raw_squirrel.ndjson") as f:
         data = f.readline()
         i=0
         while data:
             draw = Drawing(ndjson.loads(data)[0], do_link_strokes=True, do_rescale=True)
             #tda = draw.tda(absc = Drawing.X, ordo = Drawing.Y, larg=2, ecart=2, offset=1, concat=True)
-            fda = draw.fda(absc = Drawing.T, ordo = Drawing.Y, concat = True, plot = True)
-            draw.display(scale=300)
+            fda = draw.fda(absc = Drawing.T, ordo = Drawing.X, cote = Drawing.Y, concat = True, plot = True)
+            #draw.display(scale=300)
             #sig = draw.signature(4)
             #logsig = draw.signature(4, log=True)
             data = f.readline()
