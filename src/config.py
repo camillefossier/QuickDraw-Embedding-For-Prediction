@@ -311,7 +311,7 @@ class Tester:
 if __name__ == '__main__':
     lr = LogisticRegressorEvaluator()
     svm = SVMEvaluator()
-    signature = Signature(2, log=True)
+    signature = Signature(4, log=True)
     tda = TDA()
     
     config = Config(signature, lr)
@@ -319,6 +319,7 @@ if __name__ == '__main__':
     config3 = Config(signature, SpectralClusteringEvaluator(5))
     config4 = Config(signature, EMClusteringEvaluator(5))
     config5 = Config(signature, svm)
+
     tester = Tester(
         ["../data/full_raw_axe.ndjson", "../data/full_raw_sword.ndjson", "../data/full_raw_squirrel.ndjson",
         "../data/full_raw_The Eiffel Tower.ndjson", "../data/full_raw_basketball.ndjson"],
@@ -329,7 +330,7 @@ if __name__ == '__main__':
         do_rescale=True,
         link_steps=2,
     )
-    cProfile.run('tester.run()', sort="cumtime")
+    #cProfile.run('tester.run()', sort="cumtime")
     start = timer()
     tester.run()
     print(timer() - start)
@@ -355,7 +356,7 @@ if __name__ == '__main__':
     plt.show()
 
 # TODO :
-# PCA for clustering ?
-# Visualization for clusters
-# Storing results
+# PCA for clustering ? Non pas la priorité
+# Visualization for clusters ? mouais
+# Storing results ! oui
 # Add parameters to evaluators

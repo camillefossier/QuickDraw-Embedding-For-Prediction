@@ -20,7 +20,7 @@ class Drawing:
         self.timestamp = datetime.strptime(drawing.get("timestamp")[:19], "%Y-%m-%d %H:%M:%S")
         self.recognized = drawing.get("recognized")
         self.key_id = drawing.get("key_id")
-        self.strokes = [np.transpose(np.array(stroke)) for stroke in drawing.get("drawing")]
+        self.strokes = [np.transpose(np.array(stroke)).astype(np.float32) for stroke in drawing.get("drawing")]
         self.nb_strokes = len(drawing.get("drawing"))
         
         if do_link_strokes:
@@ -174,13 +174,13 @@ if __name__ == '__main__':
     print("ok")
     
     '''
-    with open("./data/full_raw_axe.ndjson") as f:
+    with open("../data/full_raw_axe.ndjson") as f:
         data = f.readline()
         i=0
         while data:
             draw = Drawing(ndjson.loads(data)[0], do_link_strokes=True, do_rescale=True)
             #tda = draw.tda(absc = Drawing.X, ordo = Drawing.Y, larg=2, ecart=2, offset=1, concat=True)
-            #fda = draw.fda(absc = Drawing.X, ordo = Drawing.Y, cote = Drawing.T, concat = True, plot = False)
+            fda = draw.fda(absc = Drawing.T, ordo = Drawing.Y, concat = True, plot = True)
             draw.display(scale=300)
             #sig = draw.signature(4)
             #logsig = draw.signature(4, log=True)
