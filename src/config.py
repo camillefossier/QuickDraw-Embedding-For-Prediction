@@ -170,7 +170,6 @@ class Signature(Embedding):
         return ts.stream2sig(data.concat_drawing(), self.degree) if not self.log else ts.stream2logsig(data.concat_drawing(), self.degree)
 
 class Spline(Embedding):
-    COUNT = -1
     def __init__(self, abscissa=Drawing.T, ordinate=Drawing.X, applicate=None, nb_knots=15, degree=3, output_shape=Embedding.VECTOR_SHAPE):
         super()
         self.abscissa = abscissa
@@ -245,7 +244,7 @@ class Spline(Embedding):
         """
 
 class TDA(Embedding):
-    def __init__(self, abscissa=Drawing.T, ordinate=Drawing.Y, width=1, spacing=1, offset=1, concat=True, clipping=False):
+    def __init__(self, abscissa=Drawing.T, ordinate=Drawing.Y, width=1, spacing=1, offset=1, nb_points=500):
         super()
         # TODO : Add possibility for list of matrices
         self.output_shape = Embedding.MATRIX_SHAPE
@@ -254,32 +253,20 @@ class TDA(Embedding):
         self.width = width
         self.spacing = spacing
         self.offset = offset
-        self.concat = concat
-        self.clipping = clipping
+        self.nb_points = nb_points
     
     # TODO : Needs to sample only part of the points
     def embed(self, data):
         fen = 2 * self.width + 1 # Taille de la fenetre (nb colonnes dans la mat)
-        final = [] # Matrice finale avec toutes les strokes concaténées
 
-        if self.concat: # On souhaite avoir la version concaténée ? 
-            strokes = [data.concat_drawing()]
-        else:
-            strokes = data.strokes
-        for stroke in strokes:
-            stroke = stroke[stroke[:,self.abscissa].argsort()] # Tri selon la variable abscisse
-            shape = stroke.shape[0] # nb lignes
-            mat = np.zeros((shape, fen)) # Initialisation de la matrice pour une stroke
-            le = self.width * self.spacing 
-            for i,depart in enumerate(range(le, shape - le, self.offset)):
-                mat[i] = stroke[range(depart - le, depart + le + 1, self.spacing), self.ordinate]
-            final.append(mat[0:i+1])
-        return np.concatenate(final, axis = 0)
-    
-    # TODO
-    def post_embedding(self, data):
-        if self.clipping:
-            min_width = min([d.shape[0] for d in data])
+        stroke = data.interpolate(self.nb_points)
+        stroke = stroke[stroke[:,self.abscissa].argsort()] # Tri selon la variable abscisse
+        shape = stroke.shape[0] # nb lignes
+        mat = np.zeros((shape, fen)) # Initialisation de la matrice pour une stroke
+        le = self.width * self.spacing 
+        for i,depart in enumerate(range(le, shape - le, self.offset)):
+            mat[i] = stroke[range(depart - le, depart + le + 1, self.spacing), self.ordinate]
+        return mat[0:i+1]
 
 
 class Config:
@@ -337,12 +324,9 @@ class Tester:
                     embedding = []
                     for draw in data:
                         try:
-                            Spline.COUNT += 1
                             embedding.append(config.embedding.embed(draw))
-                            print("ok")
                         except:
-                            print(Spline.COUNT)
-                            print("--- NO ---")
+                            pass
                     """
                     embedding = config.embedding.post_embedding(embedding)
                     if self.store_data:
@@ -381,9 +365,9 @@ class Tester:
                 import sklearn.decomposition
                 pca = sklearn.decomposition.PCA()
                 pca.fit(X)
-                from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
-                lda = LinearDiscriminantAnalysis(n_components=2)
-                lda.fit(X,y)
+                #from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+                #lda = LinearDiscriminantAnalysis(n_components=2)
+                #lda.fit(X,y)
                 trans = pca.transform(X)
                 import matplotlib.pyplot as plt
 
@@ -431,29 +415,36 @@ class Tester:
         return [drawing for drawing in res if drawing.recognized]
 
 if __name__ == '__main__':
+    nb_classes = 3
+
     lr = LogisticRegressorEvaluator()
     svm = SVMEvaluator()
     signature = Signature(4, log=False)
-    tda = TDA()
-    
-    config2 = Config(tda, lr)
+    tda = TDA(width=4, spacing=2, offset=3)
+    sc = SpectralClusteringEvaluator(nb_classes)
+    em = EMClusteringEvaluator(nb_classes)
 
     config = Config(signature, lr)
-    config3 = Config(signature, SpectralClusteringEvaluator(3))
-    config4 = Config(signature, EMClusteringEvaluator(3))
+    config3 = Config(signature, sc)
+    config4 = Config(signature, em)
     config5 = Config(signature, svm)
 
     spline = Spline(abscissa=Drawing.X, ordinate=Drawing.Y, degree=1, nb_knots=10)
     
     config6 = Config(spline, lr)
     config7 = Config(spline, svm)
-    config8 = Config(spline, EMClusteringEvaluator(3))
-    config9 = Config(spline, SpectralClusteringEvaluator(3))
+    config8 = Config(spline, em)
+    config9 = Config(spline, sc)
+
+    config10 = Config(tda, lr)
+    config11 = Config(tda, svm)
+    config12 = Config(tda, sc)
+    config13 = Config(tda, em)
 
     tester = Tester(
         ["../data/full_raw_axe.ndjson", "../data/full_raw_sword.ndjson", "../data/full_raw_squirrel.ndjson",
-        "../data/full_raw_The Eiffel Tower.ndjson", "../data/full_raw_basketball.ndjson"][0:3],
-        [config3, config4],
+        "../data/full_raw_The Eiffel Tower.ndjson", "../data/full_raw_basketball.ndjson"][0:nb_classes],
+        [config10, config11, config13],
         store_data=True,
         nb_lines=1000,
         do_link_strokes=True,

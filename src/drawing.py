@@ -84,10 +84,11 @@ class Drawing:
     
     def interpolate(self, nb_points):
         concat = self.concat_drawing()
+        concat = concat[np.argsort(concat[:, Drawing.T]), :]
         p = concat.shape[1]
         res = np.ndarray((nb_points, p))
         t = concat[:,Drawing.T]
-        new_t = np.linspace(min(t), max(t), nb_points)
+        new_t = np.linspace(np.min(t), np.max(t), nb_points)
         res[:,Drawing.T] = new_t
         for axis in range(p):
             if axis is Drawing.T:
@@ -98,7 +99,7 @@ class Drawing:
                 interp = np.array(interpolate.splrep(concat[:,Drawing.T], concat[:,axis], s=0.01, k=3))
             spline_func = interpolate.BSpline(interp[0], interp[1], interp[2], extrapolate=True) # Do I return this ? 
             res[:,axis] = spline_func(new_t)
-        return res
+        return np.nan_to_num(res)
 
     
     def display(self, scale=100):
@@ -109,7 +110,7 @@ class Drawing:
             width=scale + 10
         )
         canvas.pack(padx=20, pady=20)
-        for stroke in [self.strokes]:
+        for stroke in self.strokes:
             if (stroke.shape[1] < 4) or stroke[0,3] == 1:
                 fill = "black"
                 width=2
