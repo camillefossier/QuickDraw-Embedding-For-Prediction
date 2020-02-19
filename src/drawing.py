@@ -181,7 +181,7 @@ if __name__ == '__main__':
             draw = Drawing(ndjson.loads(data)[0], do_link_strokes=True, do_rescale=True)
             #tda = draw.tda(absc = Drawing.X, ordo = Drawing.Y, larg=2, ecart=2, offset=1, concat=True)
             #fda = draw.fda(absc = Drawing.X, ordo = Drawing.Y, cote = Drawing.T, concat = True, plot = False)
-            draw.display(scale=300)
+            #draw.display(scale=300)
             #sig = draw.signature(4)
             #logsig = draw.signature(4, log=True)
             data = f.readline()
