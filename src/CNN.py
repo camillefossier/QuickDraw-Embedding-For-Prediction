@@ -9,7 +9,7 @@ from keras.utils import to_categorical
 num_filters = 10 
 filter_size = (3,3) # Taille de fenêtre = 3*3
 stride = (1,1) # La fenêtre se déplace de 1 à l'horizontal et 1 à la vertical
-input_shape = (120,5) 
+input_shape = (120,5) # Possibilité de rajouter une troisième dimension
 pool_size = (2,2) # factors by which to downscale (vertical, horizontal)
 num_classes = 3 # Nombre de classes
 

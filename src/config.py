@@ -4,11 +4,12 @@ import numpy as np
 import sklearn.linear_model as sklm
 import sklearn.mixture as skmx
 import esig.tosig as ts
+import sklearn as sk
+import scipy.interpolate as interpolate
 
 from drawing import Drawing
 from sklearn import metrics
 from sklearn.cluster import SpectralClustering
-import sklearn as sk
 
 from timeit import default_timer as timer
 from numba import jit
@@ -148,7 +149,7 @@ class Embedding:
 
     def __init__(self):
         self.output_shape = Embedding.UNDEFINED_SHAPE
-    
+
     def embed(self, data):
         raise NotImplementedError(Embedding.NOT_IMPLEMENTED_MESSAGE)
 
@@ -167,6 +168,68 @@ class Signature(Embedding):
 
     def embed(self, data):
         return ts.stream2sig(data.concat_drawing(), self.degree) if not self.log else ts.stream2logsig(data.concat_drawing(), self.degree)
+
+class Spline(Embedding):
+    def __init__(self, abscissa=Drawing.T, ordinate=Drawing.X, applicate=None, nb_knots=15, degree=3, output_shape=Embedding.VECTOR_SHAPE):
+        super()
+        self.abscissa = abscissa
+        self.ordinate = ordinate
+        self.applicate = applicate
+        self.nb_knots = nb_knots
+        self.degree = degree
+        self.output_shape = output_shape
+    
+    def generate_knots(self, x):
+        # knots t must satisfy the Schoenberg-Whitney conditions, i.e., there must
+        # be a subset of data points x[j] such that t[j] < x[j] < t[j+k+1], for j=0, 1,...,n-k-2.
+        n = self.nb_knots + 2
+        ts = np.linspace(0, len(x)-1, n, dtype=np.int16)
+        if not np.all(np.diff(ts) >= 2):
+            return None
+        return x[ts][1:-1]
+
+    def embed(self, data):
+        stroke = data.concat_drawing()
+        t = stroke[:, self.abscissa]
+        x = stroke[:, self.ordinate]
+        order = t[:].argsort()
+        t = t[order]
+        x = x[order]
+        if self.applicate: # Bivariate
+            y = stroke[order, self.applicate]
+
+            # Param to modify
+            """ tx = np.linspace(min(x), max(x), self.nb_knots)[1:-1]
+            ty = np.linspace(min(y), max(y), self.nb_knots)[1:-1] """
+            # tt = np.linspace(min(t), max(t), self.nb_knots)[1:-1] 
+            tt = self.generate_knots(t)
+            if tt is None:
+                return None
+
+            return interpolate.bisplrep(t, x, y, kx=self.degree, ky=self.degree, tx=tt, ty=tt, task=-1)
+
+        else: # Univariate
+
+            # This function do the representation B-Spline for a 1D curve
+            #coef = interpolate.splrep(x, y, s=stroke.shape[0]/600, k=4) # s = degree of smooth, k = degree of spline fit (4 = cubic splines)
+            tt = self.generate_knots(t)
+            if tt is None:
+                return None
+
+            # return : A tuple (t,c,k) containing the vector of knots, the B-spline coefficients, and the degree of the spline
+            return interpolate.splrep(t, x, k=self.degree, t=tt, task=-1) # s = degree of smooth, k = degree of spline fit (4 = cubic splines)
+            
+        """
+            spline = interpolate.BSpline(coef[0], coef[1], coef[2], extrapolate=False) # Do I return this ? 
+            N = 100 
+            xmin, xmax = x.min(), x.max()
+            xx = np.linspace(xmin, xmax, N)
+            plt.plot(x, y, 'bo', label='Original points')
+            plt.plot(xx, spline(xx), 'r', label='BSpline')
+            plt.grid()
+            plt.legend(loc='best')
+            plt.show()
+        """
 
 class TDA(Embedding):
     def __init__(self, abscissa=Drawing.T, ordinate=Drawing.Y, width=1, spacing=1, offset=1, concat=True, clipping=False):
@@ -257,17 +320,29 @@ class Tester:
                     else:
                         data = self.stored_data[path]["data"]
                     embedding = [config.embedding.embed(draw) for draw in data]
+                    """
+                    embedding = []
+                    for draw in data:
+                        try:
+                            embedding.append(config.embedding.embed(draw))
+                            print("ok")
+                        except:
+                            print("--- NO ---")
+                    """
                     embedding = config.embedding.post_embedding(embedding)
                     if self.store_data:
                         self.stored_data[path][config.embedding] = embedding
                 else:
                     data = self.stored_data[path]["data"]
                     embedding = self.stored_data[path][config.embedding]
-                train_labels.append([d.label for d in data])
+                train_labels = train_labels + [d.label for d in data]
                 train_data = train_data + embedding
             
+            train_labels = [train_labels[i] for i,e in enumerate(train_data) if e is not None]
+            train_data = [e for i,e in enumerate(train_data) if e is not None]
+            
             X = config.evaluator.reshape(train_data, config.embedding.output_shape)
-            y = np.concatenate(train_labels)
+            y = np.array(train_labels)
 
             if config.evaluator.task == Evaluator.CLASSIFICATION:
                 n = X.shape[0]
@@ -284,6 +359,30 @@ class Tester:
                 print(config.evaluator.accuracy(X_test, y_test))
             
             elif config.evaluator.task == Evaluator.CLUSTERING:
+
+                import sklearn.decomposition
+                pca = sklearn.decomposition.PCA()
+                pca.fit(X)
+                from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+                lda = LinearDiscriminantAnalysis(n_components=2)
+                lda.fit(X,y)
+                trans = lda.transform(X)
+                import matplotlib.pyplot as plt
+
+                colors = np.copy(y)
+                for i,lab in enumerate(np.unique(y)):
+                    colors[colors==lab] = i
+                """ colors[colors == 'axe'] = 0
+                colors[colors == 'sword'] = 1
+                colors[colors == 'squirrel'] = 2
+                colors[colors == 'basketball'] = 3
+                colors[colors == 'The Eiffel Tower'] = 4 """
+                colors = colors.astype(float)
+
+                plt.scatter(trans[:,0], trans[:,1], c=colors, s=2)
+
+                plt.show()
+
                 config.evaluator.fit(X)
                 print(config.evaluator.accuracy(X, y))
 
@@ -302,16 +401,17 @@ class Tester:
             with open(path) as f:
                 data = ndjson.load(f)
         
-        return [Drawing(draw,
+        res = [Drawing(draw,
                         do_link_strokes=self.do_link_strokes,
                         do_rescale=self.do_rescale,
                         link_steps=self.link_steps,
                         link_timestep=self.link_timestep) for draw in data]
+        return [drawing for drawing in res if drawing.recognized]
 
 if __name__ == '__main__':
     lr = LogisticRegressorEvaluator()
     svm = SVMEvaluator()
-    signature = Signature(2, log=True)
+    signature = Signature(4, log=False)
     tda = TDA()
     
     config = Config(signature, lr)
@@ -319,43 +419,27 @@ if __name__ == '__main__':
     config3 = Config(signature, SpectralClusteringEvaluator(5))
     config4 = Config(signature, EMClusteringEvaluator(5))
     config5 = Config(signature, svm)
+    config6 = Config(Spline(degree=5, nb_knots=20, ordinate=Drawing.Y), lr)
+
     tester = Tester(
         ["../data/full_raw_axe.ndjson", "../data/full_raw_sword.ndjson", "../data/full_raw_squirrel.ndjson",
-        "../data/full_raw_The Eiffel Tower.ndjson", "../data/full_raw_basketball.ndjson"],
-        [config, config5],
+        "../data/full_raw_The Eiffel Tower.ndjson", "../data/full_raw_basketball.ndjson"][0:3],
+        [config6],
         store_data=True,
-        nb_lines=1000,
+        nb_lines=500,
         do_link_strokes=True,
-        do_rescale=True,
-        link_steps=2,
+        do_rescale=True
     )
-    cProfile.run('tester.run()', sort="cumtime")
+    #cProfile.run('tester.run()', sort="cumtime")
     start = timer()
     tester.run()
     print(timer() - start)
     
     exit(0)
 
-    import sklearn.decomposition
-    pca = sklearn.decomposition.PCA()
-    trans = pca.fit(X)
-
-    import matplotlib.pyplot as plt
-
-    colors = np.copy(y)
-    colors[colors == 'axe'] = 0
-    colors[colors == 'sword'] = 1
-    colors[colors == 'squirrel'] = 2
-    colors[colors == 'basketball'] = 3
-    colors[colors == 'The Eiffel Tower'] = 4
-    colors = colors.astype(float)
-
-    plt.scatter(trans[:,0], trans[:,1], c=colors, s=2)
-
-    plt.show()
-
 # TODO :
-# PCA for clustering ?
-# Visualization for clusters
-# Storing results
+# PCA for clustering ? Non pas la priorité
+# Visualization for clusters ? mouais
+# Storing results ! oui
 # Add parameters to evaluators
+# check if recognized in list comprehension of embedding

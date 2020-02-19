@@ -20,7 +20,7 @@ class Drawing:
         self.timestamp = datetime.strptime(drawing.get("timestamp")[:19], "%Y-%m-%d %H:%M:%S")
         self.recognized = drawing.get("recognized")
         self.key_id = drawing.get("key_id")
-        self.strokes = [np.transpose(np.array(stroke)) for stroke in drawing.get("drawing")]
+        self.strokes = [np.transpose(np.array(stroke)).astype(np.float32) for stroke in drawing.get("drawing")]
         self.nb_strokes = len(drawing.get("drawing"))
         
         if do_link_strokes:
@@ -135,8 +135,11 @@ class Drawing:
                 y = stroke[:,ordo]
                 z = stroke[:,cote]
 
-                # Param to modify 
-                coef = interpolate.bisplrep(x, y, z, s=1)
+                # Param to modify
+                nb_knots = 10
+                tx = np.linspace(min(y), max(y), nb_knots)
+                ty = np.linspace(min(z), max(z), nb_knots)
+                coef = interpolate.bisplrep(x, y, z, s=1, tx=tx, ty=ty, task=-1)
                 fdaSpline.append(coef)
 
         else: # Univariate
@@ -144,9 +147,14 @@ class Drawing:
                 x = stroke[:,absc]
                 x = x[x[:].argsort()]
                 y = stroke[:,ordo]
-
+                print(stroke.shape)
                 # This function do the representation B-Spline for a 1D curve
-                coef = interpolate.splrep(x, y, s=1, k=4) # s = degree of smooth, k = degree of spline fit (4 = cubic splines)
+                #coef = interpolate.splrep(x, y, s=stroke.shape[0]/600, k=4) # s = degree of smooth, k = degree of spline fit (4 = cubic splines)
+                nb_knots = 30
+                #knots = x[np.linspace(0, stroke.shape[0] - 1, nb_knots, dtype=np.int16)[1:-1]]
+                tx = np.linspace(min(y), max(y), nb_knots)[1:-1]
+                coef = interpolate.splrep(x, y, k=5, t=tx, task=-1) # s = degree of smooth, k = degree of spline fit (4 = cubic splines)
+                print(len(coef[0]))
                 # return : A tuple (t,c,k) containing the vector of knots, the B-spline coefficients, and the degree of the spline
                 fdaSpline.append(coef)
                 spline = interpolate.BSpline(coef[0], coef[1], coef[2], extrapolate=False) # Do I return this ? 
@@ -174,7 +182,7 @@ if __name__ == '__main__':
     print("ok")
     
     '''
-    with open("./data/full_raw_axe.ndjson") as f:
+    with open("../data/full_raw_squirrel.ndjson") as f:
         data = f.readline()
         i=0
         while data:
