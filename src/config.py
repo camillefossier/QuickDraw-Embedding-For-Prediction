@@ -170,6 +170,7 @@ class Signature(Embedding):
         return ts.stream2sig(data.concat_drawing(), self.degree) if not self.log else ts.stream2logsig(data.concat_drawing(), self.degree)
 
 class Spline(Embedding):
+    COUNT = -1
     def __init__(self, abscissa=Drawing.T, ordinate=Drawing.X, applicate=None, nb_knots=15, degree=3, output_shape=Embedding.VECTOR_SHAPE):
         super()
         self.abscissa = abscissa
@@ -190,35 +191,47 @@ class Spline(Embedding):
 
     def embed(self, data):
         stroke = data.concat_drawing()
-        t = stroke[:, self.abscissa]
-        x = stroke[:, self.ordinate]
-        order = t[:].argsort()
-        t = t[order]
-        x = x[order]
+        # TODO 
+        if self.applicate:
+            stroke = data.concat_without_doubles([self.abscissa, self.ordinate])
+        else:
+            stroke = data.concat_without_doubles([self.abscissa])
+        x = stroke[:, self.abscissa]
+        y = stroke[:, self.ordinate]
         if self.applicate: # Bivariate
-            y = stroke[order, self.applicate]
+            z = stroke[:, self.applicate]
 
             # Param to modify
             """ tx = np.linspace(min(x), max(x), self.nb_knots)[1:-1]
             ty = np.linspace(min(y), max(y), self.nb_knots)[1:-1] """
             # tt = np.linspace(min(t), max(t), self.nb_knots)[1:-1] 
-            tt = self.generate_knots(t)
-            if tt is None:
+            x.sort()
+            y.sort()
+            tx = self.generate_knots(x)
+            ty = self.generate_knots(y)
+            if tx is None or ty is None:
                 return None
 
-            return interpolate.bisplrep(t, x, y, kx=self.degree, ky=self.degree, tx=tt, ty=tt, task=-1)
+            # TODO : Add which columns to keep
+            res = interpolate.bisplrep(x, y, z, kx=self.degree, ky=self.degree, tx=tx, ty=ty, task=-1)
 
         else: # Univariate
+            order = x[:].argsort()
+            x = x[order]
+            y = y[order]
 
             # This function do the representation B-Spline for a 1D curve
             #coef = interpolate.splrep(x, y, s=stroke.shape[0]/600, k=4) # s = degree of smooth, k = degree of spline fit (4 = cubic splines)
-            tt = self.generate_knots(t)
-            if tt is None:
+            tx = self.generate_knots(x)
+            if tx is None:
                 return None
 
             # return : A tuple (t,c,k) containing the vector of knots, the B-spline coefficients, and the degree of the spline
-            return interpolate.splrep(t, x, k=self.degree, t=tt, task=-1) # s = degree of smooth, k = degree of spline fit (4 = cubic splines)
-            
+            res = np.array(interpolate.splrep(x, y, k=self.degree, t=tx, task=-1)[:2]) # s = degree of smooth, k = degree of spline fit (4 = cubic splines)
+        
+        if self.output_shape is Embedding.VECTOR_SHAPE:
+            res = res.flatten()
+        return res
         """
             spline = interpolate.BSpline(coef[0], coef[1], coef[2], extrapolate=False) # Do I return this ? 
             N = 100 
@@ -324,9 +337,11 @@ class Tester:
                     embedding = []
                     for draw in data:
                         try:
+                            Spline.COUNT += 1
                             embedding.append(config.embedding.embed(draw))
                             print("ok")
                         except:
+                            print(Spline.COUNT)
                             print("--- NO ---")
                     """
                     embedding = config.embedding.post_embedding(embedding)
@@ -356,34 +371,41 @@ class Tester:
                 y_test = y[shuffle][lim:]
 
                 config.evaluator.fit(X_train, y=y_train)
+                print(type(config.embedding).__name__ + " - " + type(config.evaluator).__name__)
                 print(config.evaluator.accuracy(X_test, y_test))
             
             elif config.evaluator.task == Evaluator.CLUSTERING:
-
+                
+                config.evaluator.fit(X)
+                
                 import sklearn.decomposition
                 pca = sklearn.decomposition.PCA()
                 pca.fit(X)
                 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
                 lda = LinearDiscriminantAnalysis(n_components=2)
                 lda.fit(X,y)
-                trans = lda.transform(X)
+                trans = pca.transform(X)
                 import matplotlib.pyplot as plt
 
-                colors = np.copy(y)
-                for i,lab in enumerate(np.unique(y)):
+                true_colors = np.copy(y)
+                colors = config.evaluator.predict(X)
+                for i,lab in enumerate(np.unique(true_colors)):
+                    true_colors[true_colors==lab] = i
+                
+                for i,lab in enumerate(np.unique(colors)):
                     colors[colors==lab] = i
-                """ colors[colors == 'axe'] = 0
-                colors[colors == 'sword'] = 1
-                colors[colors == 'squirrel'] = 2
-                colors[colors == 'basketball'] = 3
-                colors[colors == 'The Eiffel Tower'] = 4 """
+                
                 colors = colors.astype(float)
-
+                true_colors = true_colors.astype(float)
+                
+                plt.figure(1)
+                plt.subplot(1, 2, 2)
                 plt.scatter(trans[:,0], trans[:,1], c=colors, s=2)
-
+                plt.subplot(1, 2, 1)
+                plt.scatter(trans[:,0], trans[:,1], c=true_colors, s=2)
                 plt.show()
-
-                config.evaluator.fit(X)
+                
+                print(type(config.embedding).__name__ + " - " + type(config.evaluator).__name__)
                 print(config.evaluator.accuracy(X, y))
 
     def read_data(self, path):
@@ -414,19 +436,26 @@ if __name__ == '__main__':
     signature = Signature(4, log=False)
     tda = TDA()
     
-    config = Config(signature, lr)
     config2 = Config(tda, lr)
-    config3 = Config(signature, SpectralClusteringEvaluator(5))
-    config4 = Config(signature, EMClusteringEvaluator(5))
+
+    config = Config(signature, lr)
+    config3 = Config(signature, SpectralClusteringEvaluator(3))
+    config4 = Config(signature, EMClusteringEvaluator(3))
     config5 = Config(signature, svm)
-    config6 = Config(Spline(degree=5, nb_knots=20, ordinate=Drawing.Y), lr)
+
+    spline = Spline(abscissa=Drawing.X, ordinate=Drawing.Y, degree=1, nb_knots=10)
+    
+    config6 = Config(spline, lr)
+    config7 = Config(spline, svm)
+    config8 = Config(spline, EMClusteringEvaluator(3))
+    config9 = Config(spline, SpectralClusteringEvaluator(3))
 
     tester = Tester(
         ["../data/full_raw_axe.ndjson", "../data/full_raw_sword.ndjson", "../data/full_raw_squirrel.ndjson",
         "../data/full_raw_The Eiffel Tower.ndjson", "../data/full_raw_basketball.ndjson"][0:3],
-        [config6],
+        [config3, config4],
         store_data=True,
-        nb_lines=500,
+        nb_lines=1000,
         do_link_strokes=True,
         do_rescale=True
     )
