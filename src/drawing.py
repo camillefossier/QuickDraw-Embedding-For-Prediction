@@ -82,6 +82,43 @@ class Drawing:
             to_remove = to_remove + list(order[np.where(np.diff(col) == 0)])
         return np.delete(mat, np.unique(to_remove), axis=0)
     
+    def interpolate(self, nb_points):
+        final_res = []
+        spline_funcs = []
+        for i,stroke in enumerate(self.strokes):
+            try:
+                p = stroke.shape[1]
+                tmp_func = []
+                for axis in range(p):
+                    if axis is Drawing.T:
+                        tmp_func.append(None)
+                        continue
+                    interp = np.array(interpolate.splrep(stroke[:,Drawing.T], stroke[:,axis], s=0.01, k=3))
+                    tmp_func.append(interpolate.BSpline(interp[0], interp[1], interp[2], extrapolate=True)) # Do I return this ?
+                spline_funcs.append(tmp_func)
+            except:
+                spline_funcs.append(None)
+        
+        points_per_stroke = int(nb_points / len([s for s in spline_funcs if s is not None]))
+        for i,stroke in enumerate(self.strokes):
+            func = spline_funcs[i]
+            if func is None:
+                continue
+            t = stroke[:,Drawing.T]
+            nb = points_per_stroke
+            if i==0:
+                nb += nb_points % len([s for s in spline_funcs if s is not None])
+            new_t = np.linspace(min(t), max(t), nb)
+            res = np.ndarray((nb, p))
+            res[:,Drawing.T] = new_t
+            for axis in range(p):
+                if axis is Drawing.T:
+                    continue
+                res[:,axis] = func[axis](new_t)
+            final_res.append(res)
+        return final_res
+
+    
     def display(self, scale=100):
         root = tk.Tk()
         canvas = tk.Canvas(
@@ -90,8 +127,8 @@ class Drawing:
             width=scale + 10
         )
         canvas.pack(padx=20, pady=20)
-        for stroke in self.strokes:
-            if (stroke.shape[1] < 4) or stroke[0,3] == 1:
+        for stroke in self.interpolate(500):
+            if (stroke.shape[1] < 4) or stroke[0,3] > 0.1:
                 fill = "black"
                 width=2
             else:
@@ -198,8 +235,8 @@ if __name__ == '__main__':
         while data:
             draw = Drawing(ndjson.loads(data)[0], do_link_strokes=True, do_rescale=True)
             #tda = draw.tda(absc = Drawing.X, ordo = Drawing.Y, larg=2, ecart=2, offset=1, concat=True)
-            fda = draw.fda(absc = Drawing.X, ordo = Drawing.Y, cote = Drawing.Z, concat = True, plot = True)
-            #draw.display(scale=300)
+            #fda = draw.fda(absc = Drawing.X, ordo = Drawing.Y, cote = Drawing.Z, concat = True, plot = True)
+            draw.display(scale=300)
             #sig = draw.signature(4)
             #logsig = draw.signature(4, log=True)
             data = f.readline()
