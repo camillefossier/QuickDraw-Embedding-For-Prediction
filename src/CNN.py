@@ -9,7 +9,7 @@ from keras.utils import to_categorical
 num_filters = 10 
 filter_size = (3,3) # Taille de fenêtre = 3*3
 stride = (1,1) # La fenêtre se déplace de 1 à l'horizontal et 1 à la vertical
-input_shape = (120,5) # Possibilité de rajouter une troisième dimension
+input_shape = (120,5,1) # Keras need a third dimension
 pool_size = (2,2) # factors by which to downscale (vertical, horizontal)
 num_classes = 3 # Nombre de classes
 
@@ -18,8 +18,8 @@ model.add(Conv2D(filters = num_filters, kernel_size = filter_size, strides=strid
                  activation = 'relu',
                  input_shape = input_shape))
 model.add(MaxPooling2D(pool_size = pool_size))
-#model.add(Dropout(0.4))
-model.add(Flatten())
+#model.add(Dropout(0.4)) # A voir
+model.add(Flatten()) # Flatten layers allow you to change the shape of the data from a vector of 2d matrixes (or nd matrices really) into the correct format for a dense layer to interpret.
 model.add(Dense(num_classes, activation='softmax')) # Couche de classif
 
 # Compilation du modèle
@@ -33,7 +33,7 @@ model.compile(
 batch_size = 50
 epochs = 15
 
-# /!\ Pour le y, possibilité d'utiliser la fonction to_categorical /!\
+# /!\ Pour le y, possibilité d'utiliser la fonction to_categorical pour faire du One Hot /!\
 model.fit(x_train, y_train,
           batch_size=batch_size,
           epochs=epochs,
