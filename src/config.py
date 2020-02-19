@@ -332,8 +332,8 @@ class Tester:
                             self.stored_data[path]["data"] = data
                     else:
                         data = self.stored_data[path]["data"]
-                    #embedding = [config.embedding.embed(draw) for draw in data]
-                    
+                    embedding = [config.embedding.embed(draw) for draw in data]
+                    """
                     embedding = []
                     for draw in data:
                         try:
@@ -343,6 +343,7 @@ class Tester:
                         except:
                             print(Spline.COUNT)
                             print("--- NO ---")
+                    """
                     embedding = config.embedding.post_embedding(embedding)
                     if self.store_data:
                         self.stored_data[path][config.embedding] = embedding
@@ -375,27 +376,35 @@ class Tester:
             
             elif config.evaluator.task == Evaluator.CLUSTERING:
                 
-                """ 
+                config.evaluator.fit(X)
+                
                 import sklearn.decomposition
                 pca = sklearn.decomposition.PCA()
                 pca.fit(X)
                 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
                 lda = LinearDiscriminantAnalysis(n_components=2)
                 lda.fit(X,y)
-                trans = lda.transform(X)
+                trans = pca.transform(X)
                 import matplotlib.pyplot as plt
 
-                colors = np.copy(y)
-                for i,lab in enumerate(np.unique(y)):
+                true_colors = np.copy(y)
+                colors = config.evaluator.predict(X)
+                for i,lab in enumerate(np.unique(true_colors)):
+                    true_colors[true_colors==lab] = i
+                
+                for i,lab in enumerate(np.unique(colors)):
                     colors[colors==lab] = i
                 
                 colors = colors.astype(float)
-
+                true_colors = true_colors.astype(float)
+                
+                plt.figure(1)
+                plt.subplot(1, 2, 2)
                 plt.scatter(trans[:,0], trans[:,1], c=colors, s=2)
-
+                plt.subplot(1, 2, 1)
+                plt.scatter(trans[:,0], trans[:,1], c=true_colors, s=2)
                 plt.show()
-                """
-                config.evaluator.fit(X)
+                
                 print(type(config.embedding).__name__ + " - " + type(config.evaluator).__name__)
                 print(config.evaluator.accuracy(X, y))
 
@@ -430,21 +439,21 @@ if __name__ == '__main__':
     config2 = Config(tda, lr)
 
     config = Config(signature, lr)
-    config3 = Config(signature, SpectralClusteringEvaluator(5))
-    config4 = Config(signature, EMClusteringEvaluator(5))
+    config3 = Config(signature, SpectralClusteringEvaluator(3))
+    config4 = Config(signature, EMClusteringEvaluator(3))
     config5 = Config(signature, svm)
 
-    spline = Spline(abscissa=Drawing.X, ordinate=Drawing.Y, applicate=Drawing.Z, degree=1, nb_knots=10)
+    spline = Spline(abscissa=Drawing.X, ordinate=Drawing.Y, degree=1, nb_knots=10)
     
     config6 = Config(spline, lr)
     config7 = Config(spline, svm)
-    config8 = Config(spline, EMClusteringEvaluator(5))
-    config9 = Config(spline, SpectralClusteringEvaluator(5))
+    config8 = Config(spline, EMClusteringEvaluator(3))
+    config9 = Config(spline, SpectralClusteringEvaluator(3))
 
     tester = Tester(
         ["../data/full_raw_axe.ndjson", "../data/full_raw_sword.ndjson", "../data/full_raw_squirrel.ndjson",
         "../data/full_raw_The Eiffel Tower.ndjson", "../data/full_raw_basketball.ndjson"][0:3],
-        [config6, config7, config8, config9],
+        [config3, config4],
         store_data=True,
         nb_lines=1000,
         do_link_strokes=True,
