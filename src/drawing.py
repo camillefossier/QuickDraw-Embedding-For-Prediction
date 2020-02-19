@@ -72,6 +72,16 @@ class Drawing:
     def concat_drawing(self):
         return np.concatenate(self.strokes, axis=0)
     
+    # TODO : To USE in spline embedding
+    def concat_without_doubles(self, columns):
+        mat = self.concat_drawing()
+        to_remove = []
+        for i in columns:
+            order = np.argsort(mat[:, i])
+            col = mat[order, i]
+            to_remove = to_remove + list(order[np.where(np.diff(col) == 0)])
+        return np.delete(mat, np.unique(to_remove), axis=0)
+    
     def display(self, scale=100):
         root = tk.Tk()
         canvas = tk.Canvas(
@@ -182,13 +192,13 @@ if __name__ == '__main__':
     print("ok")
     
     '''
-    with open("../data/full_raw_squirrel.ndjson") as f:
+    with open("../data/full_raw_axe.ndjson") as f:
         data = f.readline()
         i=0
         while data:
             draw = Drawing(ndjson.loads(data)[0], do_link_strokes=True, do_rescale=True)
             #tda = draw.tda(absc = Drawing.X, ordo = Drawing.Y, larg=2, ecart=2, offset=1, concat=True)
-            fda = draw.fda(absc = Drawing.T, ordo = Drawing.X, cote = Drawing.Y, concat = True, plot = True)
+            fda = draw.fda(absc = Drawing.X, ordo = Drawing.Y, cote = Drawing.Z, concat = True, plot = True)
             #draw.display(scale=300)
             #sig = draw.signature(4)
             #logsig = draw.signature(4, log=True)
