@@ -18,8 +18,9 @@ model.add(Conv2D(filters = num_filters, kernel_size = filter_size, strides=strid
                  activation = 'relu',
                  input_shape = input_shape))
 model.add(MaxPooling2D(pool_size = pool_size))
+#model.add(Dropout(0.4))
 model.add(Flatten())
-model.add(Dense(num_classes, activation='softmax'))
+model.add(Dense(num_classes, activation='softmax')) # Couche de classif
 
 # Compilation du modèle
 model.compile(
