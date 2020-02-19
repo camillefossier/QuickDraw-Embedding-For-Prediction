@@ -83,40 +83,22 @@ class Drawing:
         return np.delete(mat, np.unique(to_remove), axis=0)
     
     def interpolate(self, nb_points):
-        final_res = []
-        spline_funcs = []
-        for i,stroke in enumerate(self.strokes):
-            try:
-                p = stroke.shape[1]
-                tmp_func = []
-                for axis in range(p):
-                    if axis is Drawing.T:
-                        tmp_func.append(None)
-                        continue
-                    interp = np.array(interpolate.splrep(stroke[:,Drawing.T], stroke[:,axis], s=0.01, k=3))
-                    tmp_func.append(interpolate.BSpline(interp[0], interp[1], interp[2], extrapolate=True)) # Do I return this ?
-                spline_funcs.append(tmp_func)
-            except:
-                spline_funcs.append(None)
-        
-        points_per_stroke = int(nb_points / len([s for s in spline_funcs if s is not None]))
-        for i,stroke in enumerate(self.strokes):
-            func = spline_funcs[i]
-            if func is None:
+        concat = self.concat_drawing()
+        p = concat.shape[1]
+        res = np.ndarray((nb_points, p))
+        t = concat[:,Drawing.T]
+        new_t = np.linspace(min(t), max(t), nb_points)
+        res[:,Drawing.T] = new_t
+        for axis in range(p):
+            if axis is Drawing.T:
                 continue
-            t = stroke[:,Drawing.T]
-            nb = points_per_stroke
-            if i==0:
-                nb += nb_points % len([s for s in spline_funcs if s is not None])
-            new_t = np.linspace(min(t), max(t), nb)
-            res = np.ndarray((nb, p))
-            res[:,Drawing.T] = new_t
-            for axis in range(p):
-                if axis is Drawing.T:
-                    continue
-                res[:,axis] = func[axis](new_t)
-            final_res.append(res)
-        return final_res
+            elif axis is Drawing.Z:
+                interp = np.array(interpolate.splrep(concat[:,Drawing.T], concat[:,axis], s=20, k=3))
+            else:
+                interp = np.array(interpolate.splrep(concat[:,Drawing.T], concat[:,axis], s=0.01, k=3))
+            spline_func = interpolate.BSpline(interp[0], interp[1], interp[2], extrapolate=True) # Do I return this ? 
+            res[:,axis] = spline_func(new_t)
+        return res
 
     
     def display(self, scale=100):
@@ -127,8 +109,8 @@ class Drawing:
             width=scale + 10
         )
         canvas.pack(padx=20, pady=20)
-        for stroke in self.interpolate(500):
-            if (stroke.shape[1] < 4) or stroke[0,3] > 0.1:
+        for stroke in [self.strokes]:
+            if (stroke.shape[1] < 4) or stroke[0,3] == 1:
                 fill = "black"
                 width=2
             else:
@@ -142,7 +124,6 @@ class Drawing:
                     stroke[i+1, 1] * scale + 5,
                     fill=fill,
                     width=width)
-                
         root.mainloop()
     
     def signature(self, degree, log=False):
