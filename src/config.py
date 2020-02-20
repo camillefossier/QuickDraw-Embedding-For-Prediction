@@ -244,9 +244,11 @@ class Spline(Embedding):
         """
 
 class TDA(Embedding):
+
+    INTERPOLATION_THRESHOLD = 1
+
     def __init__(self, abscissa=Drawing.T, ordinate=Drawing.Y, width=1, spacing=1, offset=1, nb_points=500):
         super()
-        # TODO : Add possibility for list of matrices
         self.output_shape = Embedding.MATRIX_SHAPE
         self.abscissa = abscissa
         self.ordinate = ordinate
@@ -260,6 +262,8 @@ class TDA(Embedding):
         fen = 2 * self.width + 1 # Taille de la fenetre (nb colonnes dans la mat)
 
         stroke = data.interpolate(self.nb_points)
+        if np.max(stroke[:,:2]) > 1 + TDA.INTERPOLATION_THRESHOLD or np.min(stroke[:,:2]) < 0 - TDA.INTERPOLATION_THRESHOLD:
+            return None
         stroke = stroke[stroke[:,self.abscissa].argsort()] # Tri selon la variable abscisse
         shape = stroke.shape[0] # nb lignes
         mat = np.zeros((shape, fen)) # Initialisation de la matrice pour une stroke
@@ -415,12 +419,12 @@ class Tester:
         return [drawing for drawing in res if drawing.recognized]
 
 if __name__ == '__main__':
-    nb_classes = 3
+    nb_classes = 2
 
     lr = LogisticRegressorEvaluator()
     svm = SVMEvaluator()
     signature = Signature(4, log=False)
-    tda = TDA(width=4, spacing=2, offset=3)
+    tda = TDA(width=4, spacing=2, offset=2, nb_points=1000)
     sc = SpectralClusteringEvaluator(nb_classes)
     em = EMClusteringEvaluator(nb_classes)
 
@@ -443,10 +447,10 @@ if __name__ == '__main__':
 
     tester = Tester(
         ["../data/full_raw_axe.ndjson", "../data/full_raw_sword.ndjson", "../data/full_raw_squirrel.ndjson",
-        "../data/full_raw_The Eiffel Tower.ndjson", "../data/full_raw_basketball.ndjson"][0:nb_classes],
+        "../data/full_raw_The Eiffel Tower.ndjson", "../data/full_raw_basketball.ndjson"][:nb_classes],
         [config10, config11, config13],
         store_data=True,
-        nb_lines=1000,
+        nb_lines=2000,
         do_link_strokes=True,
         do_rescale=True
     )
