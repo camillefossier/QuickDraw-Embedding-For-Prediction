@@ -40,7 +40,7 @@ class Evaluator:
         if self.shape > 2:
             raise Exception("Incorrect shape value")
     
-    def fit(self, X, y=None):
+    def fit(self, X, y=None, X_val=None, y_val=None):
         raise NotImplementedError(Evaluator.NOT_IMPLEMENTED_MESSAGE)
 
     def predict(self, X):
@@ -83,7 +83,7 @@ class LogisticRegressorEvaluator(ClassifierEvaluator):
         #if self.shape != VECTOR:
         #    raise Exception("Logistic Regression only accepts 1-dimensional vectors.")
 
-    def fit(self, X, y=None):
+    def fit(self, X, y=None, X_val=None, y_val=None):
         self.model.fit(X, y)
     
     def predict(self, X):
@@ -96,7 +96,7 @@ class SVMEvaluator(ClassifierEvaluator):
         #if self.shape != VECTOR:
         #    raise Exception("Logistic Regression only accepts 1-dimensional vectors.")
 
-    def fit(self, X, y=None):
+    def fit(self, X, y=None, X_val=None, y_val=None):
         self.model.fit(X, y)
     
     def predict(self, X):
@@ -180,7 +180,7 @@ class SpectralClusteringEvaluator(ClusteringEvaluator):
         self.model = SpectralClustering(nb_clusters, n_init=100, assign_labels='discretize')
         self.prediction = None
 
-    def fit(self, X, y=None):
+    def fit(self, X, y=None, X_val=None, y_val=None):
         self.prediction = self.model.fit_predict(X)
 
     def predict(self, X):
@@ -191,7 +191,7 @@ class EMClusteringEvaluator(ClusteringEvaluator):
         super().__init__(Evaluator.VECTOR, nb_clusters)
         self.model = skmx.GaussianMixture(n_components=nb_clusters, covariance_type='spherical')
 
-    def fit(self, X, y=None):
+    def fit(self, X, y=None, X_val=None, y_val=None):
         self.model.fit_predict(X)
 
     def predict(self, X):
@@ -333,15 +333,16 @@ class TDA(Embedding):
     
     def get_data_shape(self):
         ws = self.width * self.spacing
-        a = int((self.nb_points - (2 * ws)) / self.offset)
+        a = int((self.nb_points + 2 - (2 * ws)) / self.offset)
         b = 2 * self.width + 1
         return (a, b, 1)
 
 class Config:
-    def __init__(self, embedding, evaluator):
+    def __init__(self, embedding, evaluator, skip=False):
         # Data ==> Embedding ==> Reshape ==> Evaluate
         self.embedding = embedding
         self.evaluator = evaluator
+        self.skip = skip
 
 class Tester:
     def __init__(self, 
@@ -365,101 +366,112 @@ class Tester:
         self.link_timestep = link_timestep
         self.stored_data = {}
         self.init_data_storage()
+        self.results = None
     
     def init_data_storage(self):
         for path in self.datasets_path:
             if path not in self.stored_data:
                 self.stored_data[path] = {"data":None}
-            for config in self.configs:
-                if config.embedding not in self.stored_data[path]:
-                    self.stored_data[path][config.embedding] = None
+            for line in self.configs:
+                for config in line:
+                    if config.embedding not in self.stored_data[path]:
+                        self.stored_data[path][config.embedding] = None
 
     def run(self):
-        for config in self.configs:
-            train_data = []
-            train_labels = []
-            for path in self.datasets_path:
-                # Extract data
-                if self.stored_data[path][config.embedding] is None:    
-                    if self.stored_data[path]["data"] is None:
-                        data = self.read_data(path)
+        self.results = []
+        for line_index, line in enumerate(self.configs):
+            self.results.append([])
+            for config in line:
+                if config.skip:
+                    self.results[line_index].append(None)
+                    continue
+                train_data = []
+                train_labels = []
+                for path in self.datasets_path:
+                    # Extract data
+                    if self.stored_data[path][config.embedding] is None:    
+                        if self.stored_data[path]["data"] is None:
+                            data = self.read_data(path)
+                            if self.store_data:
+                                self.stored_data[path]["data"] = data
+                        else:
+                            data = self.stored_data[path]["data"]
+                        embedding = [config.embedding.embed(draw) for draw in data]
+                        """
+                        embedding = []
+                        for draw in data:
+                            try:
+                                embedding.append(config.embedding.embed(draw))
+                            except:
+                                pass
+                        """
+                        embedding = config.embedding.post_embedding(embedding)
                         if self.store_data:
-                            self.stored_data[path]["data"] = data
+                            self.stored_data[path][config.embedding] = embedding
                     else:
                         data = self.stored_data[path]["data"]
-                    embedding = [config.embedding.embed(draw) for draw in data]
-                    """
-                    embedding = []
-                    for draw in data:
-                        try:
-                            embedding.append(config.embedding.embed(draw))
-                        except:
-                            pass
-                    """
-                    embedding = config.embedding.post_embedding(embedding)
-                    if self.store_data:
-                        self.stored_data[path][config.embedding] = embedding
-                else:
-                    data = self.stored_data[path]["data"]
-                    embedding = self.stored_data[path][config.embedding]
-                train_labels = train_labels + [d.label for d in data]
-                train_data = train_data + embedding
-            
-            train_labels = [train_labels[i] for i,e in enumerate(train_data) if e is not None]
-            train_data = [e for i,e in enumerate(train_data) if e is not None]
-            
-            X = config.evaluator.reshape(train_data, config.embedding.output_shape)
-            y = np.array(train_labels)
+                        embedding = self.stored_data[path][config.embedding]
+                    train_labels = train_labels + [d.label for d in data]
+                    train_data = train_data + embedding
+                
+                train_labels = [train_labels[i] for i,e in enumerate(train_data) if e is not None]
+                train_data = [e for i,e in enumerate(train_data) if e is not None]
+                
+                X = config.evaluator.reshape(train_data, config.embedding.output_shape)
+                y = np.array(train_labels)
 
-            if config.evaluator.task == Evaluator.CLASSIFICATION:
-                n = X.shape[0]
-                lim = int(self.train_ratio * n)
-                shuffle = np.arange(0, n)
-                np.random.shuffle(shuffle)
+                if config.evaluator.task == Evaluator.CLASSIFICATION:
+                    n = X.shape[0]
+                    lim = int(self.train_ratio * n)
+                    shuffle = np.arange(0, n)
+                    np.random.shuffle(shuffle)
 
-                X_train = X[shuffle][:lim]
-                y_train = y[shuffle][:lim]
-                X_test = X[shuffle][lim:]
-                y_test = y[shuffle][lim:]
+                    X_train = X[shuffle][:lim]
+                    y_train = y[shuffle][:lim]
+                    X_test = X[shuffle][lim:]
+                    y_test = y[shuffle][lim:]
 
-                config.evaluator.fit(X_train, y=y_train, X_val=X_test, y_val=y_test)
-                print(type(config.embedding).__name__ + " - " + type(config.evaluator).__name__)
-                print(config.evaluator.accuracy(X_test, y_test))
-            
-            elif config.evaluator.task == Evaluator.CLUSTERING:
+                    config.evaluator.fit(X_train, y=y_train, X_val=X_test, y_val=y_test)
+                    score = config.evaluator.accuracy(X_test, y_test)
                 
-                config.evaluator.fit(X)
-                
-                import sklearn.decomposition
-                pca = sklearn.decomposition.PCA()
-                pca.fit(X)
-                #from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
-                #lda = LinearDiscriminantAnalysis(n_components=2)
-                #lda.fit(X,y)
-                trans = pca.transform(X)
-                import matplotlib.pyplot as plt
+                elif config.evaluator.task == Evaluator.CLUSTERING:
+                    
+                    config.evaluator.fit(X)
+                    
+                    import sklearn.decomposition
+                    pca = sklearn.decomposition.PCA()
+                    pca.fit(X)
+                    #from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+                    #lda = LinearDiscriminantAnalysis(n_components=2)
+                    #lda.fit(X,y)
+                    trans = pca.transform(X)
+                    import matplotlib.pyplot as plt
 
-                true_colors = np.copy(y)
-                colors = config.evaluator.predict(X)
-                for i,lab in enumerate(np.unique(true_colors)):
-                    true_colors[true_colors==lab] = i
-                
-                for i,lab in enumerate(np.unique(colors)):
-                    colors[colors==lab] = i
-                
-                colors = colors.astype(float)
-                true_colors = true_colors.astype(float)
-                
-                plt.figure(1)
-                plt.subplot(1, 2, 2)
-                plt.scatter(trans[:,0], trans[:,1], c=colors, s=2)
-                plt.subplot(1, 2, 1)
-                plt.scatter(trans[:,0], trans[:,1], c=true_colors, s=2)
-                plt.show()
+                    true_colors = np.copy(y)
+                    colors = config.evaluator.predict(X)
+                    for i,lab in enumerate(np.unique(true_colors)):
+                        true_colors[true_colors==lab] = i
+                    
+                    for i,lab in enumerate(np.unique(colors)):
+                        colors[colors==lab] = i
+                    
+                    colors = colors.astype(float)
+                    true_colors = true_colors.astype(float)
+                    
+                    plt.figure(1)
+                    plt.subplot(1, 2, 2)
+                    plt.scatter(trans[:,0], trans[:,1], c=colors, s=2)
+                    plt.subplot(1, 2, 1)
+                    plt.scatter(trans[:,0], trans[:,1], c=true_colors, s=2)
+                    plt.show()
+                    
+                    score = config.evaluator.accuracy(X, y)
                 
                 print(type(config.embedding).__name__ + " - " + type(config.evaluator).__name__)
-                print(config.evaluator.accuracy(X, y))
-
+                print(score)
+                self.results[line_index].append(score)
+        
+    
     def read_data(self, path):
         if self.nb_lines is not None:
             lines = self.nb_lines * [None]
@@ -483,41 +495,46 @@ class Tester:
         return [drawing for drawing in res if drawing.recognized]
 
 if __name__ == '__main__':
-    nb_classes = 2
+    nb_classes = 5
 
     lr = LogisticRegressorEvaluator()
     svm = SVMEvaluator()
     signature = Signature(4, log=False)
-    tda = TDA(width=10, spacing=2, offset=2, nb_points=1000)
+    tda = TDA(abscissa=Drawing.T, ordinate=Drawing.X, width=10, spacing=2, offset=3, nb_points=500)
     sc = SpectralClusteringEvaluator(nb_classes)
     em = EMClusteringEvaluator(nb_classes)
     cnn = CNNEvaluator(tda.get_data_shape(), nb_classes, dropout=0.4)
 
+    empty = Config(None, None, skip=True)
+
     config = Config(signature, lr)
-    config3 = Config(signature, sc)
+    config3 = Config(signature, svm)
     config4 = Config(signature, em)
-    config5 = Config(signature, svm)
+    config5 = Config(signature, sc, skip=True)
 
     spline = Spline(abscissa=Drawing.X, ordinate=Drawing.Y, degree=1, nb_knots=10)
     
     config6 = Config(spline, lr)
     config7 = Config(spline, svm)
     config8 = Config(spline, em)
-    config9 = Config(spline, sc)
+    config9 = Config(spline, sc, skip=True)
 
     config10 = Config(tda, lr)
     config11 = Config(tda, svm)
-    config12 = Config(tda, sc)
+    config12 = Config(tda, cnn)
     config13 = Config(tda, em)
-
-    config14 = Config(tda, cnn)
+    config14 = Config(tda, sc, skip=True)
 
     tester = Tester(
         ["../data/full_raw_axe.ndjson", "../data/full_raw_sword.ndjson", "../data/full_raw_squirrel.ndjson",
         "../data/full_raw_The Eiffel Tower.ndjson", "../data/full_raw_basketball.ndjson"][:nb_classes],
-        [config14],
+        [
+            [config, config3, empty, config4, config5],
+            [config6, config7, empty, config8, config9],
+            [config10, config11, config12, config13, config14]
+        ],
         store_data=True,
-        nb_lines=1500,
+        nb_lines=1000,
         do_link_strokes=True,
         do_rescale=True
     )
@@ -525,6 +542,7 @@ if __name__ == '__main__':
     start = timer()
     tester.run()
     print(timer() - start)
+    print(tester.results)
     
     exit(0)
 
