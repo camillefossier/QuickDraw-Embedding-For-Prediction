@@ -1,0 +1,25 @@
+FDA (univarié)
+- tester pour chaque combinaison (X,Y);(X,T);(X,Z);(Y,X)?;(Y,T);etc 
+- prendre le ou les meilleurs puis tester avec un nombre de noeud different 
+	-> Très faible (3~5), très élevé (nb total point), total/?
+- concat / non concat ? inutil ? 
+
+Signature
+- log/pas log
+- tester le nombre de dim optimal (entre 2 et 4) : dim inutile ? temmps ? Z ? 
+
+TDA (dessins tous le mm nb de points ET link activé !)
+- tester avec X et Y
+- tester fenetre classique (larg=2, ecart=1, offset=1) mais avec des dessins à beaucoup et peu de points
+- Prendre ce qui fonctionne le mieux puis tester cette fois-ci en changeant les param
+- CNN pareil, plein de param à tester...
+- commentaires ? 
+
+Manifold ? 
+- TDA : Essayer de réduire la dim sur les matrices TDA qui ont une large fenetre
+- Signature : Essayer de réduire la dim sur la grande matrice de vecteurs de la signature (surtout sur la non log)
+- Fda : Je pense pas qu'il y ait besoin
+
+Le tout :
+- Tester avec 2, 5 et 15/20 classes
+- Tester avec 100, 500, 2 000 et 20 000 images ? 
