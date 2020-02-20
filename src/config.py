@@ -13,7 +13,7 @@ from sklearn.cluster import SpectralClustering
 
 import keras
 from keras.models import Sequential
-from keras.layers import Conv2D, MaxPooling2D, Dense, Flatten
+from keras.layers import Conv2D, MaxPooling2D, Dense, Flatten, Dropout
 from keras.utils import to_categorical
 
 from timeit import default_timer as timer
@@ -103,28 +103,26 @@ class SVMEvaluator(ClassifierEvaluator):
         return self.model.predict(X)
 
 class CNNEvaluator(ClassifierEvaluator):
-    def __init__(self, multi_class="multinomial",solver="lbfgs", C=10, max_iter=7000):
+    def __init__(self, input_shape, num_classes, batch_size=50, epochs=15, num_filters=10, filter_size=(3,3), stride=(1,1), pool_size=(2,2), dropout=0):
         super().__init__(Evaluator.MATRIX)
-        self.batch_size = 50
-        self.epochs = 15
-        self.model = None
-        self.input_shape = None # Keras need a third dimension
-        self.num_classes = None # Nombre de classes
-        # TODO
-        pass
+        self.input_shape = input_shape # Keras need a third dimension
+        self.num_classes = num_classes # Nombre de classes
+        self.batch_size = batch_size
+        self.epochs = epochs
+        self.num_filters = num_filters
+        self.filter_size = filter_size
+        self.stride = stride
+        self.pool_size = pool_size
+        self.dropout = dropout
+        self.model = self.init_model()
 
     def init_model(self):
-        num_filters = 10 
-        filter_size = (3,3) # Taille de fenêtre = 3*3
-        stride = (1,1) # La fenêtre se déplace de 1 à l'horizontal et 1 à la vertical
-        pool_size = (2,2) # factors by which to downscale (vertical, horizontal)
-
         model = Sequential()
-        model.add(Conv2D(filters = num_filters, kernel_size = filter_size, strides=stride,
+        model.add(Conv2D(filters = self.num_filters, kernel_size = self.filter_size, strides=self.stride,
                         activation = 'relu',
                         input_shape = self.input_shape))
-        model.add(MaxPooling2D(pool_size = pool_size))
-        #model.add(Dropout(0.4)) # A voir
+        model.add(MaxPooling2D(pool_size = self.pool_size))
+        model.add(Dropout(self.dropout)) # A voir
         model.add(Flatten()) # Flatten layers allow you to change the shape of the data from a vector of 2d matrixes (or nd matrices really) into the correct format for a dense layer to interpret.
         model.add(Dense(self.num_classes, activation='softmax')) # Couche de classif
         
@@ -146,11 +144,6 @@ class CNNEvaluator(ClassifierEvaluator):
         X_val = np.expand_dims(X_val, 3)
         y = to_categorical(y)
         y_val = to_categorical(y_val)
-
-        if self.model is None:
-            self.input_shape = X.shape[1:]
-            self.num_classes = y.shape[1]
-            self.model = self.init_model()
         
         self.model.fit(X, y,
                         batch_size=self.batch_size,
@@ -337,7 +330,12 @@ class TDA(Embedding):
         for i,depart in enumerate(range(le, shape - le, self.offset)):
             mat[i] = stroke[range(depart - le, depart + le + 1, self.spacing), self.ordinate]
         return mat[0:i+1]
-
+    
+    def get_data_shape(self):
+        ws = self.width * self.spacing
+        a = int((self.nb_points - (2 * ws)) / self.offset)
+        b = 2 * self.width + 1
+        return (a, b, 1)
 
 class Config:
     def __init__(self, embedding, evaluator):
@@ -493,7 +491,7 @@ if __name__ == '__main__':
     tda = TDA(width=10, spacing=2, offset=2, nb_points=1000)
     sc = SpectralClusteringEvaluator(nb_classes)
     em = EMClusteringEvaluator(nb_classes)
-    cnn = CNNEvaluator()
+    cnn = CNNEvaluator(tda.get_data_shape(), nb_classes, dropout=0.4)
 
     config = Config(signature, lr)
     config3 = Config(signature, sc)
