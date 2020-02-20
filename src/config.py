@@ -11,6 +11,11 @@ from drawing import Drawing
 from sklearn import metrics
 from sklearn.cluster import SpectralClustering
 
+import keras
+from keras.models import Sequential
+from keras.layers import Conv2D, MaxPooling2D, Dense, Flatten
+from keras.utils import to_categorical
+
 from timeit import default_timer as timer
 from numba import jit
 
@@ -54,6 +59,11 @@ class Evaluator:
                 return np.array([np.array([stroke.flatten() for stroke in draw]) for draw in data])
             else:
                 raise Exception(Evaluator.UNKNOWN_SHAPE_MESSAGE)
+        elif self.shape is Evaluator.MATRIX:
+            if input_shape is Embedding.VECTOR_SHAPE:
+                raise NotImplementedError("Cannot reshape vector to matrix")
+            elif input_shape is Embedding.MATRIX_SHAPE:
+                return np.array(data)
         else:
             raise NotImplementedError("Evaluator reshape method not yet implemented for this shape.")
 
@@ -94,16 +104,72 @@ class SVMEvaluator(ClassifierEvaluator):
 
 class CNNEvaluator(ClassifierEvaluator):
     def __init__(self, multi_class="multinomial",solver="lbfgs", C=10, max_iter=7000):
-        super().__init__(Evaluator.VECTOR)
-        self.model = sk.svm.SVC()
+        super().__init__(Evaluator.MATRIX)
+        self.batch_size = 50
+        self.epochs = 15
+        self.model = None
+        self.input_shape = None # Keras need a third dimension
+        self.num_classes = None # Nombre de classes
         # TODO
         pass
+
+    def init_model(self):
+        num_filters = 10 
+        filter_size = (3,3) # Taille de fenêtre = 3*3
+        stride = (1,1) # La fenêtre se déplace de 1 à l'horizontal et 1 à la vertical
+        pool_size = (2,2) # factors by which to downscale (vertical, horizontal)
+
+        model = Sequential()
+        model.add(Conv2D(filters = num_filters, kernel_size = filter_size, strides=stride,
+                        activation = 'relu',
+                        input_shape = self.input_shape))
+        model.add(MaxPooling2D(pool_size = pool_size))
+        #model.add(Dropout(0.4)) # A voir
+        model.add(Flatten()) # Flatten layers allow you to change the shape of the data from a vector of 2d matrixes (or nd matrices really) into the correct format for a dense layer to interpret.
+        model.add(Dense(self.num_classes, activation='softmax')) # Couche de classif
         
-    def fit(self, X, y=None):
-        self.model.fit(X, y)
+        model.compile(
+            optimizer = 'adam',                #  Adam gradient-based optimizer (Possibilité de changer)
+            loss='categorical_crossentropy',
+            metrics=['accuracy'],
+        )
+
+        return model
+
+    def fit(self, X, y=None, X_val=None, y_val=None):
+        
+        for i,label in enumerate(np.unique(y)):
+            y[y == label] = i
+            y_val[y_val == label] = i
+
+        X = np.expand_dims(X, 3)
+        X_val = np.expand_dims(X_val, 3)
+        y = to_categorical(y)
+        y_val = to_categorical(y_val)
+
+        if self.model is None:
+            self.input_shape = X.shape[1:]
+            self.num_classes = y.shape[1]
+            self.model = self.init_model()
+        
+        self.model.fit(X, y,
+                        batch_size=self.batch_size,
+                        epochs=self.epochs,
+                        verbose = 1, # 1 = Progress Bar visible
+                        validation_data=(X_val, y_val))
     
     def predict(self, X):
+        X = np.expand_dims(X, 3)
         return self.model.predict(X)
+    
+    def accuracy(self, X, y):
+        X = np.expand_dims(X, 3)
+        y = to_categorical(y)
+        return self.model.evaluate(x=X, y=y,
+            batch_size=self.batch_size,
+            verbose=1,
+            )
+
 
 class ClusteringEvaluator(Evaluator):
     def __init__(self, shape, nb_clusters):
@@ -358,7 +424,7 @@ class Tester:
                 X_test = X[shuffle][lim:]
                 y_test = y[shuffle][lim:]
 
-                config.evaluator.fit(X_train, y=y_train)
+                config.evaluator.fit(X_train, y=y_train, X_val=X_test, y_val=y_test)
                 print(type(config.embedding).__name__ + " - " + type(config.evaluator).__name__)
                 print(config.evaluator.accuracy(X_test, y_test))
             
@@ -424,9 +490,10 @@ if __name__ == '__main__':
     lr = LogisticRegressorEvaluator()
     svm = SVMEvaluator()
     signature = Signature(4, log=False)
-    tda = TDA(width=4, spacing=2, offset=2, nb_points=1000)
+    tda = TDA(width=10, spacing=2, offset=2, nb_points=1000)
     sc = SpectralClusteringEvaluator(nb_classes)
     em = EMClusteringEvaluator(nb_classes)
+    cnn = CNNEvaluator()
 
     config = Config(signature, lr)
     config3 = Config(signature, sc)
@@ -445,12 +512,14 @@ if __name__ == '__main__':
     config12 = Config(tda, sc)
     config13 = Config(tda, em)
 
+    config14 = Config(tda, cnn)
+
     tester = Tester(
         ["../data/full_raw_axe.ndjson", "../data/full_raw_sword.ndjson", "../data/full_raw_squirrel.ndjson",
         "../data/full_raw_The Eiffel Tower.ndjson", "../data/full_raw_basketball.ndjson"][:nb_classes],
-        [config10, config11, config13],
+        [config14],
         store_data=True,
-        nb_lines=2000,
+        nb_lines=1500,
         do_link_strokes=True,
         do_rescale=True
     )
