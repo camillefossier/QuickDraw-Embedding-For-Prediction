@@ -13,6 +13,7 @@ def spline_array(datasets):
     s4 = Spline(abscissa=Drawing.T, ordinate=[Drawing.X, Drawing.Y], nb_knots=nb_knots, degree=degree)
     s5 = Spline(abscissa=Drawing.T, ordinate=[Drawing.X, Drawing.Y, Drawing.Z], nb_knots=nb_knots, degree=degree)
     s6 = Spline(abscissa=Drawing.X, ordinate=Drawing.Y, nb_knots=nb_knots, degree=degree)
+    s7 = Spline(abscissa=Drawing.Y, ordinate=Drawing.X, nb_knots=nb_knots, degree=degree)
 
     e1 = LogisticRegressorEvaluator()
     e2 = SVMEvaluator()
@@ -21,7 +22,7 @@ def spline_array(datasets):
     e5 = EMClusteringEvaluator(nb_clusters=K)
 
     configs = generate_configs(
-        [s1, s2, s3, s4, s5, s6],
+        [s1, s2, s3, s4, s5, s6, s7],
         [e1, e2, e3, e4, e5]
     )
 
@@ -31,6 +32,10 @@ def spline_array(datasets):
     tester = Tester(datasets, configs, store_data=True, nb_lines=1000, do_link_strokes=True, do_rescale=True)
     tester.run()
     return tester
+
+def spline_knots(datasets, knots):
+    splines = [Spline(abscissa=Drawing.X, ordinate=Drawing.Y, nb_knots=knot)]
+    # TODO 
 
 if __name__ == '__main__':
     datasets = [
