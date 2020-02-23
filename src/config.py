@@ -370,7 +370,7 @@ class Tester:
         self.link_timestep = link_timestep
         self.stored_data = {}
         self.init_data_storage()
-        self.results = None
+        self.results = []
     
     def init_data_storage(self):
         for path in self.datasets_path:
@@ -387,7 +387,7 @@ class Tester:
             self.results.append([])
             for config in line:
                 if config.skip:
-                    self.results[line_index].append(None)
+                    self.results[line_index].append(-1)
                     continue
                 train_data = []
                 train_labels = []
@@ -497,6 +497,11 @@ class Tester:
                         link_steps=self.link_steps,
                         link_timestep=self.link_timestep) for draw in data]
         return [drawing for drawing in res if drawing.recognized]
+    
+    def latex_results(self, decimals=2):
+        results = np.around(np.array(self.results), decimals).astype(np.str)
+        data = " \\\\\n".join([" & ".join(line) for line in results]) + " \\\\\n"
+        return "\\begin{bmatrix}\n" + data + "\\end{bmatrix}"
 
 if __name__ == '__main__':
     nb_classes = 2
