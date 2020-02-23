@@ -333,7 +333,7 @@ class TDA(Embedding):
     
     def get_data_shape(self):
         ws = self.width * self.spacing
-        a = int((self.nb_points + 2 - (2 * ws)) / self.offset)
+        a = len(range(ws, self.nb_points - ws, self.offset))
         b = 2 * self.width + 1
         return (a, b, 1)
 
