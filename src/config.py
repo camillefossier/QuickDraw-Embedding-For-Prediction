@@ -189,7 +189,7 @@ class SpectralClusteringEvaluator(ClusteringEvaluator):
 class EMClusteringEvaluator(ClusteringEvaluator):
     def __init__(self, nb_clusters):
         super().__init__(Evaluator.VECTOR, nb_clusters)
-        self.model = skmx.GaussianMixture(n_components=nb_clusters, covariance_type='spherical')
+        self.model = skmx.GaussianMixture(n_components=nb_clusters, covariance_type='diag')
 
     def fit(self, X, y=None, X_val=None, y_val=None):
         self.model.fit_predict(X)
@@ -495,12 +495,12 @@ class Tester:
         return [drawing for drawing in res if drawing.recognized]
 
 if __name__ == '__main__':
-    nb_classes = 5
+    nb_classes = 2
 
     lr = LogisticRegressorEvaluator()
     svm = SVMEvaluator()
     signature = Signature(4, log=False)
-    tda = TDA(abscissa=Drawing.T, ordinate=Drawing.X, width=10, spacing=2, offset=3, nb_points=500)
+    tda = TDA(abscissa=Drawing.T, ordinate=Drawing.X, width=2, spacing=1, offset=1, nb_points=500)
     sc = SpectralClusteringEvaluator(nb_classes)
     em = EMClusteringEvaluator(nb_classes)
     cnn = CNNEvaluator(tda.get_data_shape(), nb_classes, dropout=0.4)
@@ -510,23 +510,23 @@ if __name__ == '__main__':
     config = Config(signature, lr)
     config3 = Config(signature, svm)
     config4 = Config(signature, em)
-    config5 = Config(signature, sc, skip=True)
+    config5 = Config(signature, sc, skip=False)
 
     spline = Spline(abscissa=Drawing.X, ordinate=Drawing.Y, degree=1, nb_knots=10)
     
     config6 = Config(spline, lr)
     config7 = Config(spline, svm)
     config8 = Config(spline, em)
-    config9 = Config(spline, sc, skip=True)
+    config9 = Config(spline, sc, skip=False)
 
     config10 = Config(tda, lr)
     config11 = Config(tda, svm)
     config12 = Config(tda, cnn)
     config13 = Config(tda, em)
-    config14 = Config(tda, sc, skip=True)
+    config14 = Config(tda, sc, skip=False)
 
     tester = Tester(
-        ["../data/full_raw_axe.ndjson", "../data/full_raw_sword.ndjson", "../data/full_raw_squirrel.ndjson",
+        ["./data/full_raw_axe.ndjson", "./data/full_raw_squirrel.ndjson", "../data/full_raw_sword.ndjson",
         "../data/full_raw_The Eiffel Tower.ndjson", "../data/full_raw_basketball.ndjson"][:nb_classes],
         [
             [config, config3, empty, config4, config5],
@@ -534,7 +534,7 @@ if __name__ == '__main__':
             [config10, config11, config12, config13, config14]
         ],
         store_data=True,
-        nb_lines=1000,
+        nb_lines=2000,
         do_link_strokes=True,
         do_rescale=True
     )
