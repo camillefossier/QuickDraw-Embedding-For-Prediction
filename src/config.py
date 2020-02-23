@@ -229,10 +229,12 @@ class Signature(Embedding):
         return ts.stream2sig(data.concat_drawing(), self.degree) if not self.log else ts.stream2logsig(data.concat_drawing(), self.degree)
 
 class Spline(Embedding):
-    def __init__(self, abscissa=Drawing.T, ordinate=Drawing.X, applicate=None, nb_knots=15, degree=3, output_shape=Embedding.VECTOR_SHAPE):
+    def __init__(self, abscissa=Drawing.T, ordinate=[Drawing.X], applicate=None, nb_knots=15, degree=3, output_shape=Embedding.VECTOR_SHAPE):
         super()
         self.abscissa = abscissa
         self.ordinate = ordinate
+        if type(self.ordinate) is not list:
+            self.ordinate = [self.ordinate]
         self.applicate = applicate
         self.nb_knots = nb_knots
         self.degree = degree
@@ -254,39 +256,41 @@ class Spline(Embedding):
             stroke = data.concat_without_doubles([self.abscissa, self.ordinate])
         else:
             stroke = data.concat_without_doubles([self.abscissa])
-        x = stroke[:, self.abscissa]
-        y = stroke[:, self.ordinate]
-        if self.applicate: # Bivariate
-            z = stroke[:, self.applicate]
+        res = []
+        for ordinate in self.ordinate:
+            x = stroke[:, self.abscissa]
+            y = stroke[:, ordinate]
+            if self.applicate: # Bivariate
+                z = stroke[:, self.applicate]
 
-            # Param to modify
-            """ tx = np.linspace(min(x), max(x), self.nb_knots)[1:-1]
-            ty = np.linspace(min(y), max(y), self.nb_knots)[1:-1] """
-            # tt = np.linspace(min(t), max(t), self.nb_knots)[1:-1] 
-            x.sort()
-            y.sort()
-            tx = self.generate_knots(x)
-            ty = self.generate_knots(y)
-            if tx is None or ty is None:
-                return None
+                # Param to modify
+                """ tx = np.linspace(min(x), max(x), self.nb_knots)[1:-1]
+                ty = np.linspace(min(y), max(y), self.nb_knots)[1:-1] """
+                # tt = np.linspace(min(t), max(t), self.nb_knots)[1:-1] 
+                x.sort()
+                y.sort()
+                tx = self.generate_knots(x)
+                ty = self.generate_knots(y)
+                if tx is None or ty is None:
+                    return None
 
-            # TODO : Add which columns to keep
-            res = interpolate.bisplrep(x, y, z, kx=self.degree, ky=self.degree, tx=tx, ty=ty, task=-1)
+                # TODO : Add which columns to keep
+                res = interpolate.bisplrep(x, y, z, kx=self.degree, ky=self.degree, tx=tx, ty=ty, task=-1)
 
-        else: # Univariate
-            order = x[:].argsort()
-            x = x[order]
-            y = y[order]
+            else: # Univariate
+                order = x[:].argsort()
+                x = x[order]
+                y = y[order]
 
-            # This function do the representation B-Spline for a 1D curve
-            #coef = interpolate.splrep(x, y, s=stroke.shape[0]/600, k=4) # s = degree of smooth, k = degree of spline fit (4 = cubic splines)
-            tx = self.generate_knots(x)
-            if tx is None:
-                return None
+                # This function do the representation B-Spline for a 1D curve
+                #coef = interpolate.splrep(x, y, s=stroke.shape[0]/600, k=4) # s = degree of smooth, k = degree of spline fit (4 = cubic splines)
+                tx = self.generate_knots(x)
+                if tx is None:
+                    return None
 
-            # return : A tuple (t,c,k) containing the vector of knots, the B-spline coefficients, and the degree of the spline
-            res = np.array(interpolate.splrep(x, y, k=self.degree, t=tx, task=-1)[:2]) # s = degree of smooth, k = degree of spline fit (4 = cubic splines)
-        
+                # return : A tuple (t,c,k) containing the vector of knots, the B-spline coefficients, and the degree of the spline
+                res = res + list(interpolate.splrep(x, y, k=self.degree, t=tx, task=-1)[:2]) # s = degree of smooth, k = degree of spline fit (4 = cubic splines)
+        res = np.array(res)
         if self.output_shape is Embedding.VECTOR_SHAPE:
             res = res.flatten()
         return res
