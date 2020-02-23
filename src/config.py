@@ -499,9 +499,20 @@ class Tester:
         return [drawing for drawing in res if drawing.recognized]
     
     def latex_results(self, decimals=2):
+        w = len(self.results[0])
+        #h = len(self.results)
         results = np.around(np.array(self.results), decimals).astype(np.str)
-        data = " \\\\\n".join([" & ".join(line) for line in results]) + " \\\\\n"
-        return "\\begin{bmatrix}\n" + data + "\\end{bmatrix}"
+        data = " \\\\\n".join(["EMBED & " + " & ".join(line) for line in results]) + " \\\\\n"
+        final = "\\begin{table}[h]\n"
+        final += "\\begin{tabular}{c|" + (w * "c") + "}\n"
+        final += "\\hline\n"
+        final += " & ".join([' '] + (['EVAL'] * w)) + " \\\\\n"
+        final += "\\hline\n"
+        final += data
+        final += "\\hline\n"
+        final += "\\end{tabular}\n"
+        final += "\\end{table}"
+        return final
 
 if __name__ == '__main__':
     nb_classes = 2
