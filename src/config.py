@@ -21,6 +21,8 @@ from numba import jit
 
 import cProfile
 
+import matplotlib.pyplot as plt
+
 class Evaluator:
 
     CLASSIFICATION = 0
@@ -441,13 +443,14 @@ class Tester:
                 elif config.evaluator.task == Evaluator.CLUSTERING:
                     
                     config.evaluator.fit(X)
-                    
+                    """
                     import sklearn.decomposition
                     pca = sklearn.decomposition.PCA()
                     pca.fit(X)
                     #from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
                     #lda = LinearDiscriminantAnalysis(n_components=2)
                     #lda.fit(X,y)
+                    
                     trans = pca.transform(X)
                     import matplotlib.pyplot as plt
 
@@ -468,7 +471,7 @@ class Tester:
                     plt.subplot(1, 2, 1)
                     plt.scatter(trans[:,0], trans[:,1], c=true_colors, s=2)
                     plt.show()
-                    
+                    """
                     score = config.evaluator.accuracy(X, y)
                 
                 print(type(config.embedding).__name__ + " - " + type(config.evaluator).__name__)
@@ -513,6 +516,16 @@ class Tester:
         final += "\\end{tabular}\n"
         final += "\\end{table}"
         return final
+    
+    def show_curves(self, abscissa):
+        res = np.array(self.results)
+        for i in range(res.shape[1]):
+            plt.plot(abscissa, res[:,i], i)
+        plt.ylim(
+            max(np.min(res) - 0.05, 0),
+            min(np.max(res) + 0.05, 1)
+        )
+        plt.show()
 
 if __name__ == '__main__':
     nb_classes = 2
