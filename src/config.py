@@ -201,6 +201,8 @@ class EMClusteringEvaluator(ClusteringEvaluator):
   
 class Embedding:
 
+    INSTANCES_COUNTS = 0
+
     NOT_IMPLEMENTED_MESSAGE = "Embedding is an abstract class."
 
     UNDEFINED_SHAPE = -1
@@ -208,7 +210,12 @@ class Embedding:
     MATRIX_SHAPE = 1
     MATRIX_LIST_SHAPE = 2
 
-    def __init__(self):
+    def __init__(self, embedding_id=None):
+        if embedding_id:
+            self.embedding_id = embedding_id
+        else:
+            Embedding.INSTANCES_COUNTS += 1
+            self.embedding_id = str(Embedding.INSTANCES_COUNTS)
         self.output_shape = Embedding.UNDEFINED_SHAPE
 
     def embed(self, data):
@@ -221,14 +228,21 @@ class Embedding:
         return self.output_shape
 
 class Signature(Embedding):
-    def __init__(self, degree, log=False):
-        super()
+    def __init__(self, degree, log=False, nb_to_keep=None, embedding_id=None):
+        super().__init__(embedding_id=embedding_id)
         self.output_shape = Embedding.VECTOR_SHAPE
         self.degree = degree
         self.log = log
+        self.nb_to_keep = nb_to_keep
 
     def embed(self, data):
         return ts.stream2sig(data.concat_drawing(), self.degree) if not self.log else ts.stream2logsig(data.concat_drawing(), self.degree)
+    
+    def post_embedding(self, data):
+        if self.nb_to_keep > 0:
+            return [sig[:self.nb_to_keep] for sig in data]
+        else:
+            return data
 
 class Spline(Embedding):
     def __init__(self, abscissa=Drawing.T, ordinate=[Drawing.X], applicate=None, nb_knots=15, degree=3, output_shape=Embedding.VECTOR_SHAPE):
@@ -381,7 +395,7 @@ class Tester:
             for line in self.configs:
                 for config in line:
                     if config.embedding not in self.stored_data[path]:
-                        self.stored_data[path][config.embedding] = None
+                        self.stored_data[path][config.embedding.embedding_id] = None
 
     def run(self):
         self.results = []
@@ -395,7 +409,7 @@ class Tester:
                 train_labels = []
                 for path in self.datasets_path:
                     # Extract data
-                    if self.stored_data[path][config.embedding] is None:    
+                    if self.stored_data[path][config.embedding.embedding_id] is None:    
                         if self.stored_data[path]["data"] is None:
                             data = self.read_data(path)
                             if self.store_data:
@@ -411,12 +425,12 @@ class Tester:
                             except:
                                 pass
                         """
-                        embedding = config.embedding.post_embedding(embedding)
                         if self.store_data:
-                            self.stored_data[path][config.embedding] = embedding
+                            self.stored_data[path][config.embedding.embedding_id] = embedding
                     else:
                         data = self.stored_data[path]["data"]
-                        embedding = self.stored_data[path][config.embedding]
+                        embedding = self.stored_data[path][config.embedding.embedding_id]
+                    embedding = config.embedding.post_embedding(embedding)
                     train_labels = train_labels + [d.label for d in data]
                     train_data = train_data + embedding
                 
@@ -559,12 +573,10 @@ if __name__ == '__main__':
     config14 = Config(tda, sc, skip=False)
 
     tester = Tester(
-        ["./data/full_raw_axe.ndjson", "./data/full_raw_squirrel.ndjson", "../data/full_raw_sword.ndjson",
+        ["../data/full_raw_axe.ndjson", "../data/full_raw_squirrel.ndjson", "../data/full_raw_sword.ndjson",
         "../data/full_raw_The Eiffel Tower.ndjson", "../data/full_raw_basketball.ndjson"][:nb_classes],
         [
-            [config, config3, empty, config4, config5],
-            [config6, config7, empty, config8, config9],
-            [config10, config11, config12, config13, config14]
+            [config]
         ],
         store_data=True,
         nb_lines=2000,
