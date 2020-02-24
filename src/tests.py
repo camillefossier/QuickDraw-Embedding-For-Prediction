@@ -90,8 +90,8 @@ if __name__ == '__main__':
         "../data/full_raw_basketball.ndjson"
     ]
 
-    sig_graph = signature_degree(datasets, list(range(10,341,10)))
-    sig_graph.show_curves(list(range(10,341,10)), evaluators=("Regression Logistique", "SVM"))
+    #sig_graph = signature_degree(datasets, list(range(10,341,10)))
+    #sig_graph.show_curves(list(range(10,341,10)), evaluators=("Regression Logistique", "SVM"))
     graph = spline_knots(datasets, list(range(2,102,5)))
     graph.show_curves(list(range(2,102,5)), evaluators=["LR", "SVM", "Spectral", "EM"])
     spline = spline_array(datasets)

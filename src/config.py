@@ -246,7 +246,7 @@ class Signature(Embedding):
 
 class Spline(Embedding):
     def __init__(self, abscissa=Drawing.T, ordinate=[Drawing.X], applicate=None, nb_knots=15, degree=3, output_shape=Embedding.VECTOR_SHAPE):
-        super()
+        super().__init__()
         self.abscissa = abscissa
         self.ordinate = ordinate
         if type(self.ordinate) is not list:
@@ -327,7 +327,7 @@ class TDA(Embedding):
     INTERPOLATION_THRESHOLD = 1
 
     def __init__(self, abscissa=Drawing.T, ordinate=Drawing.Y, width=1, spacing=1, offset=1, nb_points=500):
-        super()
+        super().__init__()
         self.output_shape = Embedding.MATRIX_SHAPE
         self.abscissa = abscissa
         self.ordinate = ordinate
