@@ -68,7 +68,7 @@ def signature_degree(datasets, degrees):
     signatures = [Signature(4, nb_to_keep=deg, embedding_id="signature") for deg in degrees] 
     configs = generate_configs(
         signatures,
-        [e1]
+        [e1, e2]
     )
     tester = Tester(
         datasets,
@@ -90,9 +90,9 @@ if __name__ == '__main__':
         "../data/full_raw_basketball.ndjson"
     ]
 
-    sig_graph = signature_degree(datasets, list(range(10,341,30)))
-    sig_graph.show_curves(list(range(10,341,30)))
+    sig_graph = signature_degree(datasets, list(range(10,341,10)))
+    sig_graph.show_curves(list(range(10,341,10)), evaluators=("Regression Logistique", "SVM"))
     graph = spline_knots(datasets, list(range(2,102,5)))
-    graph.show_curves(list(range(2,102,5)))
+    graph.show_curves(list(range(2,102,5)), evaluators=["LR", "SVM", "Spectral", "EM"])
     spline = spline_array(datasets)
     print(spline.latex_results(3))

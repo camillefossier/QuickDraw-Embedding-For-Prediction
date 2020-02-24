@@ -531,14 +531,18 @@ class Tester:
         final += "\\end{table}"
         return final
     
-    def show_curves(self, abscissa):
+    def show_curves(self, abscissa, evaluators):
         res = np.array(self.results)
         for i in range(res.shape[1]):
-            plt.plot(abscissa, res[:,i], i)
+            plt.plot(abscissa, res[:,i], label=evaluators[i])
+        plt.legend(loc="lower right")
+        """
         plt.ylim(
             max(np.min(res) - 0.05, 0),
             min(np.max(res) + 0.05, 1)
         )
+        """
+        plt.ylim(0,1)
         plt.show()
 
 if __name__ == '__main__':
