@@ -123,7 +123,7 @@ class CNNEvaluator(ClassifierEvaluator):
         model.add(Conv2D(filters = self.num_filters, kernel_size = self.filter_size, strides=self.stride,
                         activation = 'relu',
                         input_shape = self.input_shape))
-        model.add(MaxPooling2D(pool_size = self.pool_size))
+        model.add(MaxPooling2D(pool_size = self.pool_size, dim_ordering='th'))
         model.add(Dropout(self.dropout)) # A voir
         model.add(Flatten()) # Flatten layers allow you to change the shape of the data from a vector of 2d matrixes (or nd matrices really) into the correct format for a dense layer to interpret.
         model.add(Dense(self.num_classes, activation='softmax')) # Couche de classif
@@ -163,7 +163,7 @@ class CNNEvaluator(ClassifierEvaluator):
         return self.model.evaluate(x=X, y=y,
             batch_size=self.batch_size,
             verbose=1,
-            )
+            )[1]
 
 
 class ClusteringEvaluator(Evaluator):
@@ -245,7 +245,7 @@ class Signature(Embedding):
             return data
 
 class Spline(Embedding):
-    def __init__(self, abscissa=Drawing.T, ordinate=[Drawing.X], applicate=None, nb_knots=15, degree=3, output_shape=Embedding.VECTOR_SHAPE):
+    def __init__(self, abscissa=Drawing.T, ordinate=[Drawing.X], applicate=None, nb_knots=15, degree=3, output_shape=Embedding.MATRIX_SHAPE):
         super().__init__()
         self.abscissa = abscissa
         self.ordinate = ordinate
@@ -321,6 +321,12 @@ class Spline(Embedding):
             plt.legend(loc='best')
             plt.show()
         """
+    
+    def get_data_shape(self):
+        a = 2 * len(self.ordinate)
+        b = self.nb_knots + (2 * (self.degree + 1))
+        return (a,b,1)
+
 
 class TDA(Embedding):
 
@@ -494,10 +500,11 @@ class Tester:
         
     
     def read_data(self, path):
+        bigger_sample_size = int(self.nb_lines * 1.2)
         if self.nb_lines is not None:
-            lines = self.nb_lines * [None]
+            lines = bigger_sample_size * [None]
             with open(path) as f:
-                for i in range(self.nb_lines):
+                for i in range(bigger_sample_size):
                     line = f.readline()
                     if line:
                         lines[i] = line
@@ -513,7 +520,7 @@ class Tester:
                         do_rescale=self.do_rescale,
                         link_steps=self.link_steps,
                         link_timestep=self.link_timestep) for draw in data]
-        return [drawing for drawing in res if drawing.recognized]
+        return [drawing for drawing in res if drawing.recognized][:self.nb_lines]
     
     def latex_results(self, decimals=2):
         w = len(self.results[0])

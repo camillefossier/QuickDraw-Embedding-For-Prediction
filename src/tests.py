@@ -17,17 +17,19 @@ def spline_array(datasets):
 
     e1 = LogisticRegressorEvaluator()
     e2 = SVMEvaluator()
-    e3 = CNNEvaluator(input_shape=(10,10,1), num_classes=K)
+    e31 = CNNEvaluator(input_shape=s1.get_data_shape(), num_classes=K, filter_size=(2,2))
+    e32 = CNNEvaluator(input_shape=s4.get_data_shape(), num_classes=K, filter_size=(2,2))
+    e33 = CNNEvaluator(input_shape=s5.get_data_shape(), num_classes=K, filter_size=(2,2))
     e4 = SpectralClusteringEvaluator(K)
     e5 = EMClusteringEvaluator(nb_clusters=K)
 
     configs = generate_configs(
         [s1, s2, s3, s4, s5, s6, s7],
-        [e1, e2, e3, e4, e5]
+        [e1, e2, e31, e4, e5]
     )
 
-    for config_line in configs:
-        config_line[2].skip = True
+    configs[3][2].evaluator = e32
+    configs[4][2].evaluator = e33
     
     tester = Tester(datasets, configs, store_data=True, nb_lines=1000, do_link_strokes=True, do_rescale=True)
     tester.run()
@@ -90,9 +92,9 @@ if __name__ == '__main__':
         "../data/full_raw_basketball.ndjson"
     ]
 
+    spline = spline_array(datasets[:2])
     #sig_graph = signature_degree(datasets, list(range(10,341,10)))
     #sig_graph.show_curves(list(range(10,341,10)), evaluators=("Regression Logistique", "SVM"))
     graph = spline_knots(datasets, list(range(2,102,5)))
     graph.show_curves(list(range(2,102,5)), evaluators=["LR", "SVM", "Spectral", "EM"])
-    spline = spline_array(datasets)
     print(spline.latex_results(3))
