@@ -1,4 +1,5 @@
 from config import *
+import os
 
 def generate_configs(embeddings, evaluators):
     return [[Config(em, ev) for ev in evaluators] for em in embeddings]
@@ -31,7 +32,7 @@ def spline_array(datasets):
     configs[3][2].evaluator = e32
     configs[4][2].evaluator = e33
     
-    tester = Tester(datasets, configs, store_data=True, nb_lines=1000, do_link_strokes=True, do_rescale=True)
+    tester = Tester(datasets, configs, store_data=True, nb_lines=2000, do_link_strokes=True, do_rescale=True)
     tester.run()
     return tester
 
@@ -84,13 +85,9 @@ def signature_degree(datasets, degrees):
     return tester
 
 if __name__ == '__main__':
-    datasets = [
-        "../data/full_raw_axe.ndjson",
-        "../data/full_raw_squirrel.ndjson",
-        "../data/full_raw_sword.ndjson",
-        "../data/full_raw_The Eiffel Tower.ndjson",
-        "../data/full_raw_basketball.ndjson"
-    ]
+    datasets = [os.path.join('..\\data', filename) for filename in os.listdir('../data')]
+
+    sample_files = np.random.choice(datasets, 5, replace=False).tolist()
 
     spline = spline_array(datasets[:2])
     #sig_graph = signature_degree(datasets, list(range(10,341,10)))
